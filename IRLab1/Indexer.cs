@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Set = System.Collections.Generic.SortedSet<int>;
@@ -11,6 +13,7 @@ namespace IRLab1
         public int TermCount { get; set; }
         public int TokenSummaryLength { get; set; }
         public int TermSummaryLength { get; set; }
+        public TimeSpan CreatingTime { get; set; }
     }
     public class Index
     {
@@ -135,6 +138,8 @@ namespace IRLab1
             Index res = new Index();
             stat = new Statistic();
             int i = 0;
+            Stopwatch time = new Stopwatch();
+            time.Start();
             foreach (var par in docs)
             {
                 res.paragraph.Add(par);
@@ -154,6 +159,8 @@ namespace IRLab1
                 }
                 i++;
             }
+            stat.CreatingTime = time.Elapsed;
+            time.Stop();
             res.ext = new BooleanTokenExtractor(res);
             return res;
         }
