@@ -1,16 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Set = System.Collections.Generic.SortedSet<int>;
 
 namespace IRLab1
 {
+    public class Statistic
+    {
+        public int TokenCount { get; set; }
+        public int TermCount { get; set; }
+        public int TokenSummaryLength { get; set; }
+        public int TermSummaryLength { get; set; }
+    }
     public class Index
     {
-        public class BooleanTokenExtractor : ITokenExtractor<Set>
+        class BooleanTokenExtractor : ITokenExtractor<Set>
         {
             Index ind;
             public BooleanTokenExtractor(Index index)
@@ -52,9 +56,18 @@ namespace IRLab1
                 return res;
             }
         }
-        private Dictionary<string, Set> index;
+
+        Dictionary<string, Set> index;
+        static Regex wordFinder = new Regex(@"[^\s«_,\.\(\)\[\]\{\}\?\!'&\|""]+", RegexOptions.Compiled);
         BooleanTokenExtractor ext;
         public List<string> paragraph { get; private set; }
+        
+        Index()
+        {
+            index = new Dictionary<string, Set>();
+            paragraph = new List<string>();
+        }
+
         public Set this[string s]
         {
             get
@@ -64,13 +77,6 @@ namespace IRLab1
                 else
                     return new Set();
             }
-        }
-
-
-        Index()
-        {
-            index = new Dictionary<string, Set>();
-            paragraph = new List<string>();
         }
 
         public IEnumerable<string> Search(string query)
@@ -123,21 +129,28 @@ namespace IRLab1
             }
             return solveStack.Pop().Select(x => paragraph[x]);
         }
-        static Regex wordFinder = new Regex(@"[^\s«_,\.\(\)\[\]\{\}\?\!'&\|""]+", RegexOptions.Compiled);
-        public static Index CreateIndex(string text)
+
+        public static Index CreateIndex(IEnumerable<string> docs, out Statistic stat)
         {
             Index res = new Index();
+            stat = new Statistic();
             int i = 0;
-            foreach (var par in text.Split(new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            foreach (var par in docs)
             {
                 res.paragraph.Add(par);
-                foreach (Match word in wordFinder.Matches(par.ToUpper()))
+                foreach (Match word in wordFinder.Matches(par))
                 {
+                    stat.TokenCount++;
+                    stat.TokenSummaryLength += word.Value.Length;
                     Set ss;
                     if (res.index.TryGetValue(word.Value, out ss))
                         ss.Add(i);
                     else
+                    {
                         res.index.Add(word.Value, new Set { i });
+                        stat.TermCount++;
+                        stat.TermSummaryLength += word.Value.Length;
+                    }
                 }
                 i++;
             }
