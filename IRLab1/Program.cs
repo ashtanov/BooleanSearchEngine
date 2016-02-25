@@ -56,7 +56,8 @@ namespace IRLab1
                 time.Stop();
                 Console.WriteLine("term count\t{0}\ntoken count\t{1}\navg. term length\t{2}\navg. token length\t{3}\nelapsed time\t{4}",
                     stat.TermCount, stat.TokenCount, stat.TermSummaryLength / (float)stat.TermCount, stat.TokenSummaryLength / (float)stat.TokenCount, time.Elapsed);
-                //добавить сериализацию построенного индекса
+                index.Serialize(name);
+                index = Index.Deserialize(name);
                 Console.ReadKey();
             }
             catch (Exception ex)

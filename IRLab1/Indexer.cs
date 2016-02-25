@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Set = System.Collections.Generic.SortedSet<int>;
@@ -61,7 +62,7 @@ namespace IRLab1
         }
 
         Dictionary<string, Set> index;
-        static Regex wordFinder = new Regex(@"[^\s«_,\.\(\)\[\]\{\}\?\!'&\|""]+", RegexOptions.Compiled);
+        static Regex wordFinder = new Regex(@"[^\s«_,\.\(\)\[\]\{\}\?\!'&\|""<>#\*\\=/;:-]+", RegexOptions.Compiled);
         BooleanTokenExtractor ext;
         public List<string> paragraph { get; private set; }
         
@@ -148,11 +149,11 @@ namespace IRLab1
                     stat.TokenCount++;
                     stat.TokenSummaryLength += word.Value.Length;
                     Set ss;
-                    if (res.index.TryGetValue(word.Value, out ss))
+                    if (res.index.TryGetValue(word.Value.ToUpper(), out ss))
                         ss.Add(i);
                     else
                     {
-                        res.index.Add(word.Value, new Set { i });
+                        res.index.Add(word.Value.ToUpper(), new Set { i });
                         stat.TermCount++;
                         stat.TermSummaryLength += word.Value.Length;
                     }
@@ -164,5 +165,54 @@ namespace IRLab1
             res.ext = new BooleanTokenExtractor(res);
             return res;
         }
+
+        public void Serialize(string filePath)
+        {
+            using (var bw = new BinaryWriter(new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write)))
+            {
+                bw.Write(index.Count);
+                foreach (var t in index)
+                {
+                    bw.Write(t.Key);
+                    bw.Write(t.Value.Count);
+                    for(int i = 0; i< t.Value.Count; ++i)
+                    {
+                        bw.Write(t.Value.ElementAt(i));
+                    }
+                }
+                bw.Write(paragraph.Count);
+                foreach(var p in paragraph)
+                {
+                    bw.Write(p);
+                }
+            }
+        }
+
+        public static Index Deserialize(string filePath)
+        {
+            Index ind = new Index();
+            using(var br = new BinaryReader(new FileStream(filePath, FileMode.Open, FileAccess.Read)))
+            {
+                int count = br.ReadInt32();
+                for(int i = 0; i < count; ++i)
+                {
+                    string name = br.ReadString();
+                    int scount = br.ReadInt32();
+                    Set s = new Set();
+                    for(int k = 0;  k < scount; ++k)
+                    {
+                        s.Add(br.ReadInt32());
+                    }
+                    ind.index.Add(name, s);
+                }
+                count = br.ReadInt32();
+                for(int i =0; i < count; ++i)
+                {
+                    ind.paragraph.Add(br.ReadString());
+                }
+            }
+            return ind;
+        }
     }
+
 }
