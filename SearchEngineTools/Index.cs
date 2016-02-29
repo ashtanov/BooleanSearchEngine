@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Set = System.Collections.Generic.SortedSet<int>;
 
-namespace IRLab1
+namespace SearchEngineTools
 {
     public class Statistic
     {
@@ -62,10 +62,9 @@ namespace IRLab1
         }
 
         Dictionary<string, Set> index;
-        static Regex wordFinder = new Regex(@"[^\s«_,\.\(\)\[\]\{\}\?\!'&\|""<>#\*\\=/;:-]+", RegexOptions.Compiled);
         BooleanTokenExtractor ext;
         public List<string> paragraph { get; private set; }
-        
+
         Index()
         {
             index = new Dictionary<string, Set>();
@@ -117,16 +116,16 @@ namespace IRLab1
                 else
                     output.Add(t);
             }
-            while(stack.Count != 0)
+            while (stack.Count != 0)
             {
                 output.Add(stack.Pop());
             }
             Stack<Set> solveStack = new Stack<Set>();
-            foreach(var t in output)
+            foreach (var t in output)
             {
-                if(t is ValueToken<Set>)
+                if (t is ValueToken<Set>)
                     solveStack.Push((t as ValueToken<Set>).value);
-                else if(t is UOpToken<Set>)
+                else if (t is UOpToken<Set>)
                     solveStack.Push((t as UOpToken<Set>).function(solveStack.Pop()));
                 else
                     solveStack.Push((t as BOpToken<Set>).function(solveStack.Pop(), solveStack.Pop()));
@@ -144,18 +143,18 @@ namespace IRLab1
             foreach (var par in docs)
             {
                 res.paragraph.Add(par);
-                foreach (Match word in wordFinder.Matches(par))
+                foreach (string word in ParseHelper.FindAllWords(par))
                 {
                     stat.TokenCount++;
-                    stat.TokenSummaryLength += word.Value.Length;
+                    stat.TokenSummaryLength += word.Length;
                     Set ss;
-                    if (res.index.TryGetValue(word.Value.ToUpper(), out ss))
+                    if (res.index.TryGetValue(word.ToUpper(), out ss))
                         ss.Add(i);
                     else
                     {
-                        res.index.Add(word.Value.ToUpper(), new Set { i });
+                        res.index.Add(word.ToUpper(), new Set { i });
                         stat.TermCount++;
-                        stat.TermSummaryLength += word.Value.Length;
+                        stat.TermSummaryLength += word.Length;
                     }
                 }
                 i++;
@@ -175,13 +174,13 @@ namespace IRLab1
                 {
                     bw.Write(t.Key);
                     bw.Write(t.Value.Count);
-                    for(int i = 0; i< t.Value.Count; ++i)
+                    for (int i = 0; i < t.Value.Count; ++i)
                     {
                         bw.Write(t.Value.ElementAt(i));
                     }
                 }
                 bw.Write(paragraph.Count);
-                foreach(var p in paragraph)
+                foreach (var p in paragraph)
                 {
                     bw.Write(p);
                 }
@@ -191,28 +190,28 @@ namespace IRLab1
         public static Index Deserialize(string filePath)
         {
             Index ind = new Index();
-            using(var br = new BinaryReader(new FileStream(filePath, FileMode.Open, FileAccess.Read)))
+            using (var br = new BinaryReader(new FileStream(filePath, FileMode.Open, FileAccess.Read)))
             {
                 int count = br.ReadInt32();
-                for(int i = 0; i < count; ++i)
+                for (int i = 0; i < count; ++i)
                 {
                     string name = br.ReadString();
                     int scount = br.ReadInt32();
                     Set s = new Set();
-                    for(int k = 0;  k < scount; ++k)
+                    for (int k = 0; k < scount; ++k)
                     {
                         s.Add(br.ReadInt32());
                     }
                     ind.index.Add(name, s);
                 }
                 count = br.ReadInt32();
-                for(int i =0; i < count; ++i)
+                for (int i = 0; i < count; ++i)
                 {
                     ind.paragraph.Add(br.ReadString());
                 }
             }
+            ind.ext = new BooleanTokenExtractor(ind);
             return ind;
         }
     }
-
 }

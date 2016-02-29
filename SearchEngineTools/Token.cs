@@ -2,12 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace IRLab1
+namespace SearchEngineTools
 {
-
     public class Token<T>
     {
         public string lexemm { get; set; }
@@ -41,6 +39,4 @@ namespace IRLab1
     {
         List<Token<T>> SplitInput(string input);
     }
-
-    
 }

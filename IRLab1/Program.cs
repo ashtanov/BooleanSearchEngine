@@ -1,13 +1,10 @@
-﻿using HtmlAgilityPack;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using SearchEngineTools;
+
 
 namespace IRLab1
 {
@@ -15,50 +12,71 @@ namespace IRLab1
     {
         static void Main(string[] args)
         {
-            try {
-                string name = "index.idx";
+            try
+            {
+                string name = "index";
                 string source = "";
+                bool search = false;
                 for (int i = 0; i < args.Length; ++i)
                 {
                     switch (args[i])
                     {
                         case "-n":
                             i++;
-                            name = args[i] + ".idx";
+                            name = args[i];
+                            break;
+                        case "-s":
+                            search = true;
                             break;
                         default:
                             source = args[i];
                             break;
                     }
                 }
-                List<string> docs;
-                Stopwatch time = new Stopwatch();
-                if (source.StartsWith("http://az.lib.ru")) // http://az.lib.ru/t/tolstoj_lew_nikolaewich/text_1860_dekabristy.shtml
+                Index index;
+                if (!search)
                 {
-                    var req = (HttpWebRequest)WebRequest.Create(source);
-                    HtmlDocument doc = new HtmlDocument();
-                    doc.Load(req.GetResponse().GetResponseStream());
-                    var yy = doc.DocumentNode.InnerText.Replace("&nbsp;", " ").Replace("\r", "");
-                    time.Start();
-                    docs = yy.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-                }
-                else if (source.StartsWith("http"))
-                {
-                    Console.WriteLine("Не поддерживается!");
-                    return;
+                    List<string> docs;
+                    if (source.StartsWith("http://az.lib.ru")) // http://az.lib.ru/t/tolstoj_lew_nikolaewich/text_1860_dekabristy.shtml
+                    {
+                        var text = WebHelper.GetLibCompositionText(new Uri(source));
+                        docs = ParseHelper.DivideIntoParagraphs(text);
+                        ZipfCalc.WriteStat(name + ".csv", text);
+                    }
+                    else if (source.StartsWith("http"))
+                    {
+                        Console.WriteLine("Не поддерживается!");
+                        return;
+                    }
+                    else
+                    {
+                        docs = File.ReadAllLines(source).ToList();
+                    }
+                    Statistic stat;
+                    index = Index.CreateIndex(docs, out stat);
+                    Console.WriteLine("term count\t{0}\ntoken count\t{1}\navg. term length\t{2}\navg. token length\t{3}\nelapsed time\t{4}",
+                        stat.TermCount, stat.TokenCount, stat.TermSummaryLength / (float)stat.TermCount, stat.TokenSummaryLength / (float)stat.TokenCount, stat.CreatingTime);
+                    index.Serialize(name + ".idx");
+                    Console.ReadKey();
                 }
                 else
                 {
-                    docs = File.ReadAllLines(source).ToList();
+                    index = Index.Deserialize(name + ".idx");
+                    while (true)
+                    {
+                        string req = Console.ReadLine();
+                        if (req.Equals(@"\quit"))
+                            break;
+                        else
+                        {
+                            var results = index.Search(req);
+                            if (results.Count() > 0)
+                                Console.WriteLine(string.Join("\n", results.Select((x, i) => string.Format("{0}. {1}", i, x))));
+                            else
+                                Console.WriteLine("Не найдено");
+                        }
+                    }
                 }
-                Statistic stat;
-                var index = Index.CreateIndex(docs, out stat);
-                time.Stop();
-                Console.WriteLine("term count\t{0}\ntoken count\t{1}\navg. term length\t{2}\navg. token length\t{3}\nelapsed time\t{4}",
-                    stat.TermCount, stat.TokenCount, stat.TermSummaryLength / (float)stat.TermCount, stat.TokenSummaryLength / (float)stat.TokenCount, time.Elapsed);
-                index.Serialize(name);
-                index = Index.Deserialize(name);
-                Console.ReadKey();
             }
             catch (Exception ex)
             {
