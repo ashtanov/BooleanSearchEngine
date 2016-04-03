@@ -1,8 +1,10 @@
-﻿using System;
+﻿using Iveonik.Stemmers;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Set = System.Collections.Generic.SortedSet<int>;
 
@@ -26,7 +28,7 @@ namespace SearchEngineTools
                 ind = index;
             }
             static Regex ext = new Regex(@"[^\s«_,\.\(\)\[\]\{\}\?\!'&\|""]+|&|\||\!|\(|\)");
-            public List<Token<Set>> SplitInput(string input)
+            public List<Token<Set>> SplitInput(string input, bool quote)
             {
                 List<Token<Set>> res = new List<Token<Set>>();
                 var ttt = ext.Matches(input);
@@ -42,7 +44,7 @@ namespace SearchEngineTools
                             t = new PToken<Set> { priority = 10, lexemm = ")" };
                             break;
                         case "&":
-                            t = new BOpToken<Set> { priority = 4, function = (x, y) => new Set(x.Intersect(y)), lexemm = "&" };
+                            t = new BOpToken<Set> { priority = 4, function = StubSmartIntersect, lexemm = "&" };
                             break;
                         case "|":
                             t = new BOpToken<Set> { priority = 2, function = (x, y) => new Set(x.Union(y)), lexemm = "|" };
@@ -51,7 +53,7 @@ namespace SearchEngineTools
                             t = new UOpToken<Set> { priority = 5, function = (x) => new Set(Enumerable.Range(0, ind.paragraph.Count).Except(x)), lexemm = "!" };
                             break;
                         default:
-                            t = new ValueToken<Set>(ind[m.Value.ToUpper()]) { lexemm = string.Concat("'", m.Value, "'") };
+                            t = new ValueToken<Set>(ind[quote ? m.Value : ind.normalizer.NormalizeWord(m.Value)]) { lexemm = string.Concat("'", m.Value, "'") };
                             break;
 
                     }
@@ -59,16 +61,125 @@ namespace SearchEngineTools
                 }
                 return res;
             }
+
+            Set Intersect(Set a, Set b, out int compares)
+            {
+                Console.WriteLine("Обычный {0}", new Set(a.Intersect(b)).Count);
+                List<int> first, second;
+                Set result = new Set();
+                first = b.ToList();
+                second = a.ToList();
+                compares = 0;
+                int i = 0, k = 0;
+                while (i < first.Count && k < second.Count)
+                {
+                    compares++;
+                    if (first[i] == second[k])
+                    {
+                        result.Add(first[i]);
+                        k++;
+                        i++;
+                    }
+                    else if (first[i] < second[k])
+                        i++;
+                    else
+                        k++;
+
+                }
+                Console.WriteLine("intercount: {0}\tcomp:{1}", result.Count, compares);
+                return result;
+            }
+
+            Set SmartIntersect(Set a, Set b, int jumpa, int jumpb, out int compares)
+            {
+                List<int> first, second;
+                Set result = new Set();
+                first = b.ToList();
+                second = a.ToList();
+                compares = 0;
+                int i = 0, k = 0;
+                while (i < first.Count && k < second.Count)
+                {
+                    if (first[i] == second[k])
+                    {
+                        compares++;
+                        result.Add(first[i]);
+                        k++;
+                        i++;
+                    }
+                    else if (first[i] < second[k])
+                    {
+                        compares++;
+                        if (i % jumpb == 0)
+                        {
+                            compares++;
+                            while (i + jumpb < first.Count && first[i + jumpb] < second[k])
+                            {
+                                compares++;
+                                i += jumpb;
+                            }
+                            i++;
+                        }
+                        else
+                            i++;
+                    }
+                    else
+                    {
+                        compares++;
+                        if (k % jumpa == 0)
+                        {
+                            compares++;
+                            while (k + jumpa < second.Count && second[k + jumpa] < first[i])
+                            {
+                                compares++;
+                                k += jumpa;
+                            }
+                            k++;
+                        }
+                        else
+                            k++;
+                    }
+                }
+                return result;
+            }
+
+            Set CompareIntersect(Set a, Set b)
+            {
+                int s_k;
+                Intersect(a, b, out s_k);
+                int[] c_ks = new int[48];
+                for (int i = 2; i < 50; ++i)
+                {
+                    SmartIntersect(a, b, i, i, out c_ks[i - 2]);
+                }
+                int sm_k;
+                var res = SmartIntersect(a, b, (int)Math.Sqrt(a.Count), (int)Math.Sqrt(b.Count), out sm_k);
+                string format = string.Format("{0}\n{1}\n{2}\n{3}",
+                    string.Join(";", c_ks),
+                    string.Join(";", c_ks.Select(x => s_k)),
+                    string.Join(";", c_ks.Select(x => sm_k)),
+                    string.Join(";", c_ks.Select((x, i) => i + 2)));
+                File.WriteAllText("stat.csv", format);
+                return res;
+            }
+
+            Set StubSmartIntersect(Set a, Set b)
+            {
+                int c1;
+                return SmartIntersect(a, b, (int)Math.Sqrt(a.Count), (int)Math.Sqrt(b.Count), out c1);
+            }
         }
 
         Dictionary<string, Set> index;
         BooleanTokenExtractor ext;
         public List<string> paragraph { get; private set; }
+        IWordNormalizer normalizer;
 
         Index()
         {
             index = new Dictionary<string, Set>();
             paragraph = new List<string>();
+            normalizer = new WordCaseNormalizer();
         }
 
         public Set this[string s]
@@ -82,9 +193,39 @@ namespace SearchEngineTools
             }
         }
 
+        public IEnumerable<string> QuoteSearch(string query)
+        {
+            query = query.Trim(new[] { '\"' });
+            var words = ParseHelper.FindAllWords(query);
+            string prevWord = null;
+            List<string> tmp = new List<string>();
+            foreach (var w in words)
+            {
+                if (prevWord != null)
+                    tmp.Add(prevWord + "$" + w);
+                prevWord = w;
+            }
+            return Search(string.Join("&", tmp)).Where(x => ContainsSubSeq(ParseHelper.FindAllWords(x), words));
+        }
+
+        public bool ContainsSubSeq(IEnumerable<string> text, IList<string> quote)
+        {
+            int i = 0;
+            foreach(var word in text)
+            {
+                if (i == quote.Count)
+                    return true;
+                if (word.Equals(quote[i]))
+                    i++;
+                else
+                    i = 0;
+            }
+            return false;
+        }
+
         public IEnumerable<string> Search(string query)
         {
-            var tokens = ext.SplitInput(query);
+            var tokens = ext.SplitInput(query, query.Contains("$"));
             Stack<PToken<Set>> stack = new Stack<PToken<Set>>();
             List<Token<Set>> output = new List<Token<Set>>();
             foreach (var t in tokens)
@@ -142,20 +283,36 @@ namespace SearchEngineTools
             time.Start();
             foreach (var par in docs)
             {
+                string prevWord = null;
                 res.paragraph.Add(par);
                 foreach (string word in ParseHelper.FindAllWords(par))
                 {
+                    if (prevWord != null)
+                    {
+                        string pair = prevWord + "$" + word;
+                        Set ss1;
+                        if (res.index.TryGetValue(pair, out ss1))
+                            ss1.Add(i);
+                        else
+                        {
+                            res.index.Add(pair, new Set { i });
+                            stat.TermCount++;
+                            stat.TermSummaryLength += word.Length;
+                        }
+                    }
                     stat.TokenCount++;
                     stat.TokenSummaryLength += word.Length;
                     Set ss;
-                    if (res.index.TryGetValue(word.ToUpper(), out ss))
+                    var nword = res.normalizer.NormalizeWord(word);
+                    if (res.index.TryGetValue(nword, out ss))
                         ss.Add(i);
                     else
                     {
-                        res.index.Add(word.ToUpper(), new Set { i });
+                        res.index.Add(nword, new Set { i });
                         stat.TermCount++;
-                        stat.TermSummaryLength += word.Length;
+                        stat.TermSummaryLength += nword.Length;
                     }
+                    prevWord = word;
                 }
                 i++;
             }

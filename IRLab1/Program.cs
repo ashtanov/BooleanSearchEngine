@@ -64,14 +64,20 @@ namespace IRLab1
                     index = Index.Deserialize(name + ".idx");
                     while (true)
                     {
-                        string req = Console.ReadLine();
+                        string req = Console.ReadLine().Trim();
                         if (req.Equals(@"\quit"))
                             break;
                         else
                         {
-                            var results = index.Search(req);
+                            IEnumerable<string> results;
+                            if(req.StartsWith("\"") && req.EndsWith("\""))
+                                results = index.QuoteSearch(req);
+                            else
+                                results = index.Search(req);
                             if (results.Count() > 0)
-                                Console.WriteLine(string.Join("\n", results.Select((x, i) => string.Format("{0}. {1}", i, x))));
+                            {
+                                Console.WriteLine(string.Join("\n", results.Select((x, i) => string.Format("{0}. {1}", i + 1, x))));
+                            }
                             else
                                 Console.WriteLine("Не найдено");
                         }

@@ -37,6 +37,6 @@ namespace SearchEngineTools
     }
     public interface ITokenExtractor<T>
     {
-        List<Token<T>> SplitInput(string input);
+        List<Token<T>> SplitInput(string input, bool quote);
     }
 }
