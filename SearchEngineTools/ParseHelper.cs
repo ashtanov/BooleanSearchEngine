@@ -9,7 +9,7 @@ namespace SearchEngineTools
 {
     public static class ParseHelper
     {
-        static Regex wordFinder = new Regex(@"[^\s«_,\.\(\)\[\]\{\}\?\!'&\|""<>#\*\\=/;:-]+", RegexOptions.Compiled);
+        static Regex wordFinder = new Regex(@"[^\s«_,\.\(\)\[\]\{\}\?\!'&\|""<>#\*\\=/;:-]+|/d+", RegexOptions.Compiled);
         public static List<string> DivideIntoParagraphs(string text)
         {
             return text.Replace("&nbsp;", " ").Replace("&NBSP;", " ").Replace("\r", "").Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries).ToList();
