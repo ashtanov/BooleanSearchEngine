@@ -70,8 +70,12 @@ namespace IRLab1
                         else
                         {
                             IEnumerable<string> results;
-                            if(req.StartsWith("\"") && req.EndsWith("\""))
+                            if (req.StartsWith("\"") && req.EndsWith("\""))
                                 results = index.QuoteSearch(req);
+                            else if (req.IsDistanceQuery())
+                            {
+                                results = index.DistanceSearch(req);
+                            }
                             else
                                 results = index.Search(req);
                             if (results.Count() > 0)

@@ -60,8 +60,13 @@ namespace SearchEngineTools
                             t = new BOpToken<PositionDict> { priority = 4, function = StubSmartIntersect, lexemm = "&" };
                             break;
                         case "|":
-                            t = new BOpToken<PositionDict> { priority = 2, function = 
-                                (x, y) => new PositionDict(x.Union(y, new PairCopmarer()).ToDictionary(k => k.Key, k => k.Value)), lexemm = "|" };
+                            t = new BOpToken<PositionDict>
+                            {
+                                priority = 2,
+                                function =
+                                (x, y) => new PositionDict(x.Union(y, new PairCopmarer()).ToDictionary(k => k.Key, k => k.Value)),
+                                lexemm = "|"
+                            };
                             break;
                         case "!":
                             t = new UOpToken<PositionDict> { priority = 5, function = (x) => { throw new NotImplementedException(); }, lexemm = "!" };
@@ -166,19 +171,80 @@ namespace SearchEngineTools
         public IEnumerable<string> DistanceSearch(string query)
         {
             var words = ParseHelper.FindAllWords(query);
-            return null;
+            List<Tuple<string, string, int>> tmp = new List<Tuple<string, string, int>>();
+            for(int i = 2; i < words.Count; i += 2)
+                tmp.Add(new Tuple<string, string, int>(words[i - 2], words[i], int.Parse(words[i - 1].Substring(1))));
+            List<IList<Coord>> res = new List<IList<Coord>>();
+            foreach(var ds in tmp)
+            {
+                res.Add(
+                    DistanceSearch2Docs(
+                        index[normalizer.NormalizeWord(ds.Item1)], 
+                        index[normalizer.NormalizeWord(ds.Item2)], 
+                        ds.Item3)
+                    );
+            }
+            IList<Coord> current = res[0];
+            for(int i = 1; i < res.Count; ++i)
+            {
+                List<Coord> intersect = new List<Coord>();
+                int j = 0, k = 0;
+                while (j < current.Count && k < res[i].Count)
+                    if (current[j].docId == res[i][k].docId)
+                    {
+                        if (current[j].sPos == res[i][k].fPos)
+                            intersect.Add(res[i][k]);
+                        k++;
+                        j++;
+                    }
+                    else if (current[j].docId < res[i][k].docId)
+                        j++;
+                    else
+                        k++;
+                current = intersect;
+            }
+            return current.Select(x => paragraph[x.docId]);
         }
 
-        public IEnumerable<int> DistanceSearch2Docs(PositionDict a, PositionDict b, int distance)
+        public class Coord
+        {
+            public int docId { get; set; }
+            public int fPos { get; set; }
+            public int sPos { get; set; }
+        }
+
+        private IList<Coord> DistanceSearch2Docs(PositionDict a, PositionDict b, int distance)
         {
             int i = 0, k = 0;
             IList<int> first = a.Keys.ToList();
             IList<int> second = b.Keys.ToList();
+            List<Coord> answer = new List<Coord>();
             while (i < first.Count && k < second.Count)
             {
                 if (first[i] == second[k])
                 {
-
+                    int docId = first[i];
+                    List<int> l = new List<int>();
+                    int fPos = 0;
+                    int sPos = 0;
+                    List<int> posA = a[docId].ToList();
+                    while (fPos < posA.Count)
+                    {
+                        List<int> posB = b[docId].ToList();
+                        while (sPos < posB.Count)
+                        {
+                            if (Math.Abs(posA[fPos] - posB[sPos]) <= distance)
+                                l.Add(posB[sPos]);
+                            else if (posB[sPos] > posA[fPos])
+                                break;
+                            sPos++;
+                        }
+                        while (l.Count != 0 && Math.Abs(l[0] - posA[fPos]) > distance)
+                            l.RemoveAt(0);
+                        foreach (var ps in l)
+                            answer.Add(new Coord { docId = docId, fPos = posA[fPos], sPos = ps });
+                        fPos++;
+                    }
                     k++;
                     i++;
                 }
@@ -188,6 +254,7 @@ namespace SearchEngineTools
                     i++;
 
             }
+            return answer;
         }
         public bool ContainsSubSeq(IEnumerable<string> text, IList<string> quote)
         {
