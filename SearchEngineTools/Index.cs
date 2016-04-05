@@ -172,6 +172,7 @@ namespace SearchEngineTools
 
         Dictionary<string, Set> index;
         BooleanTokenExtractor ext;
+        Dictionary<string, SortedSet<string>> bigramm = new Dictionary<string, SortedSet<string>>();
         public List<string> paragraph { get; private set; }
         IWordNormalizer normalizer;
 
@@ -180,6 +181,7 @@ namespace SearchEngineTools
             index = new Dictionary<string, Set>();
             paragraph = new List<string>();
             normalizer = new WordCaseNormalizer();
+            bigramm = new Dictionary<string, SortedSet<string>>();
         }
 
         public Set this[string s]
@@ -208,10 +210,64 @@ namespace SearchEngineTools
             return Search(string.Join("&", tmp)).Where(x => ContainsSubSeq(ParseHelper.FindAllWords(x), words));
         }
 
+        public IEnumerable<string> JokerSearch(string query)
+        {
+            var words = ParseHelper.FindAllWords(query);
+            StringBuilder sb = new StringBuilder();
+            foreach (var jw in words)
+            {
+                SortedSet<string> result = null;
+                var nword = normalizer.NormalizeWord(jw);
+                if (nword.Contains('*'))
+                {
+                    var bi = $"${nword}$";
+                    for (int l = 1; l < bi.Length; ++l)
+                    {
+                        var key = string.Concat(bi[l - 1], bi[l]);
+                        if (!key.Contains('*'))
+                        {
+                            if (result == null)
+                            {
+                                result = new SortedSet<string>();
+                                foreach (var tt in bigramm[key])
+                                    result.Add(tt);
+                            }
+                            else
+                                result.IntersectWith(bigramm[key]);
+                        }
+                    }
+                    var yy = result.Where(x => Regex.IsMatch(x, $"^{nword.Replace("*", ".*")}$"));
+                    if (yy.Any())
+                    {
+                        sb.Append("&(" + string.Join("|", yy) + ")");
+                    }
+
+                }
+                else
+                    sb.Append($"&{nword}");
+            }
+            return Search(sb.ToString().TrimStart('&'));
+        }
+
+
+        //private List<string> SplitBigramm(string word)
+        //{
+        //    var nword = res.normalizer.NormalizeWord(word);
+        //    var bi = string.Concat("$", nword, "$");
+        //    for (int l = 1; l < bi.Length; ++l)
+        //    {
+        //        var key = string.Concat(bi[l - 1], bi[l]);
+        //        if (res.bigramm.ContainsKey(key))
+        //            res.bigramm[key].Add(nword);
+        //        else
+        //            res.bigramm.Add(key, new SortedSet<string> { nword });
+        //    }
+        //}
+
         public bool ContainsSubSeq(IEnumerable<string> text, IList<string> quote)
         {
             int i = 0;
-            foreach(var word in text)
+            foreach (var word in text)
             {
                 if (i == quote.Count)
                     return true;
@@ -283,27 +339,41 @@ namespace SearchEngineTools
             time.Start();
             foreach (var par in docs)
             {
-                string prevWord = null;
+                //string prevWord = null;
                 res.paragraph.Add(par);
                 foreach (string word in ParseHelper.FindAllWords(par))
                 {
-                    if (prevWord != null)
+                    //if (prevWord != null)
+                    //{
+                    //    string pair = prevWord + "$" + word;
+                    //    Set ss1;
+                    //    if (res.index.TryGetValue(pair, out ss1))
+                    //        ss1.Add(i);
+                    //    else
+                    //    {
+                    //        res.index.Add(pair, new Set { i });
+                    //        stat.TermCount++;
+                    //        stat.TermSummaryLength += word.Length;
+                    //    }
+                    //}
+                    var nword = res.normalizer.NormalizeWord(word);
+                    var bi = string.Concat("$", nword, "$");
+                    for (int l = 1; l < bi.Length; ++l)
                     {
-                        string pair = prevWord + "$" + word;
-                        Set ss1;
-                        if (res.index.TryGetValue(pair, out ss1))
-                            ss1.Add(i);
+                        var key = string.Concat(bi[l - 1], bi[l]);
+                        if (res.bigramm.ContainsKey(key))
+                            res.bigramm[key].Add(nword);
                         else
-                        {
-                            res.index.Add(pair, new Set { i });
-                            stat.TermCount++;
-                            stat.TermSummaryLength += word.Length;
-                        }
+                            res.bigramm.Add(key, new SortedSet<string> { nword });
                     }
+
+
+
+
                     stat.TokenCount++;
                     stat.TokenSummaryLength += word.Length;
                     Set ss;
-                    var nword = res.normalizer.NormalizeWord(word);
+
                     if (res.index.TryGetValue(nword, out ss))
                         ss.Add(i);
                     else
@@ -312,13 +382,15 @@ namespace SearchEngineTools
                         stat.TermCount++;
                         stat.TermSummaryLength += nword.Length;
                     }
-                    prevWord = word;
+                    //prevWord = word;
                 }
                 i++;
             }
             stat.CreatingTime = time.Elapsed;
             time.Stop();
             res.ext = new BooleanTokenExtractor(res);
+
+            var yyy = res.JokerSearch("челов*к ты");
             return res;
         }
 
