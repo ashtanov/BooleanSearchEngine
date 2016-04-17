@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Set = System.Collections.Generic.SortedSet<int>;
-using PositionDict = System.Collections.Generic.SortedDictionary<int, System.Collections.Generic.SortedSet<int>>;
+using PositionDict = System.Collections.Generic.SortedDictionary<System.Guid, System.Collections.Generic.SortedSet<int>>;
 
 namespace SearchEngineTools
 {
@@ -21,14 +21,14 @@ namespace SearchEngineTools
     }
     public class Index
     {
-        class PairCopmarer : IEqualityComparer<KeyValuePair<int, Set>>
+        class PairCopmarer : IEqualityComparer<KeyValuePair<Guid, Set>>
         {
-            public bool Equals(KeyValuePair<int, Set> x, KeyValuePair<int, Set> y)
+            public bool Equals(KeyValuePair<Guid, Set> x, KeyValuePair<Guid, Set> y)
             {
                 return x.Key.Equals(y.Key);
             }
 
-            public int GetHashCode(KeyValuePair<int, Set> obj)
+            public int GetHashCode(KeyValuePair<Guid, Set> obj)
             {
                 return obj.Key.GetHashCode();
             }
@@ -83,7 +83,7 @@ namespace SearchEngineTools
 
             PositionDict SmartIntersect(PositionDict a, PositionDict b, int jumpa, int jumpb)
             {
-                List<int> first, second;
+                List<Guid> first, second;
                 PositionDict result = new PositionDict();
                 first = b.Keys.ToList();
                 second = a.Keys.ToList();
@@ -96,11 +96,11 @@ namespace SearchEngineTools
                         k++;
                         i++;
                     }
-                    else if (first[i] < second[k])
+                    else if (first[i].CompareTo(second[k]) < 0)
                     {
                         if (i % jumpb == 0)
                         {
-                            while (i + jumpb < first.Count && first[i + jumpb] < second[k])
+                            while (i + jumpb < first.Count && first[i + jumpb].CompareTo(second[k]) < 0)
                             {
                                 i += jumpb;
                             }
@@ -113,7 +113,7 @@ namespace SearchEngineTools
                     {
                         if (k % jumpa == 0)
                         {
-                            while (k + jumpa < second.Count && second[k + jumpa] < first[i])
+                            while (k + jumpa < second.Count && second[k + jumpa].CompareTo(first[i]) < 0)
                                 k += jumpa;
                             k++;
                         }
@@ -132,13 +132,12 @@ namespace SearchEngineTools
 
         Dictionary<string, PositionDict> index;
         BooleanTokenExtractor ext;
-        public List<string> paragraph { get; private set; }
         IWordNormalizer normalizer;
+        string path_docs;
 
         Index()
         {
             index = new Dictionary<string, PositionDict>();
-            paragraph = new List<string>();
             normalizer = new WordCaseNormalizer();
         }
 
@@ -168,24 +167,52 @@ namespace SearchEngineTools
             return Search(string.Join("&", tmp)).Where(x => ContainsSubSeq(ParseHelper.FindAllWords(x), words));
         }
 
+        public static void Merge(List<Index> indexes, string dir, string name)
+        {
+            if (!File.Exists(dir))
+                Directory.CreateDirectory(dir);
+            Index ind = new Index { path_docs = dir };
+            foreach (var index in indexes)
+            {
+                foreach (var file in Directory.GetFiles(index.path_docs))
+                {
+                    File.Copy(file, string.Format("{0}/{1}", dir, Path.GetFileName(file)));
+                }
+                foreach (var kvp in index.index)
+                {
+                    PositionDict pd;
+                    if(ind.index.TryGetValue(kvp.Key, out pd))
+                        foreach(var elem in kvp.Value)
+                            pd.Add(elem.Key, elem.Value);
+                    else
+                    {
+                        pd = new SortedDictionary<Guid, SortedSet<int>>(kvp.Value);
+                        ind.index.Add(kvp.Key, pd);
+                    }
+
+                }
+            }
+            ind.Serialize(name);
+        }
+
         public IEnumerable<string> DistanceSearch(string query)
         {
             var words = ParseHelper.FindAllWords(query);
             List<Tuple<string, string, int>> tmp = new List<Tuple<string, string, int>>();
-            for(int i = 2; i < words.Count; i += 2)
+            for (int i = 2; i < words.Count; i += 2)
                 tmp.Add(new Tuple<string, string, int>(words[i - 2], words[i], int.Parse(words[i - 1].Substring(1))));
             List<IList<Coord>> res = new List<IList<Coord>>();
-            foreach(var ds in tmp)
+            foreach (var ds in tmp)
             {
                 res.Add(
                     DistanceSearch2Docs(
-                        index[normalizer.NormalizeWord(ds.Item1)], 
-                        index[normalizer.NormalizeWord(ds.Item2)], 
+                        index[normalizer.NormalizeWord(ds.Item1)],
+                        index[normalizer.NormalizeWord(ds.Item2)],
                         ds.Item3)
                     );
             }
             IList<Coord> current = res[0];
-            for(int i = 1; i < res.Count; ++i)
+            for (int i = 1; i < res.Count; ++i)
             {
                 List<Coord> intersect = new List<Coord>();
                 int j = 0, k = 0;
@@ -197,18 +224,18 @@ namespace SearchEngineTools
                         k++;
                         j++;
                     }
-                    else if (current[j].docId < res[i][k].docId)
+                    else if (current[j].docId.CompareTo(res[i][k].docId) < 0)
                         j++;
                     else
                         k++;
                 current = intersect;
             }
-            return current.Select(x => paragraph[x.docId]);
+            return current.Select(x => GetDocument(x.docId));
         }
 
         public class Coord
         {
-            public int docId { get; set; }
+            public Guid docId { get; set; }
             public int fPos { get; set; }
             public int sPos { get; set; }
         }
@@ -216,14 +243,14 @@ namespace SearchEngineTools
         private IList<Coord> DistanceSearch2Docs(PositionDict a, PositionDict b, int distance)
         {
             int i = 0, k = 0;
-            IList<int> first = a.Keys.ToList();
-            IList<int> second = b.Keys.ToList();
+            IList<Guid> first = a.Keys.ToList();
+            IList<Guid> second = b.Keys.ToList();
             List<Coord> answer = new List<Coord>();
             while (i < first.Count && k < second.Count)
             {
                 if (first[i] == second[k])
                 {
-                    int docId = first[i];
+                    Guid docId = first[i];
                     List<int> l = new List<int>();
                     int fPos = 0;
                     int sPos = 0;
@@ -248,7 +275,7 @@ namespace SearchEngineTools
                     k++;
                     i++;
                 }
-                else if (first[i] > second[k])
+                else if (first[i].CompareTo(second[k]) > 0)
                     k++;
                 else
                     i++;
@@ -319,50 +346,53 @@ namespace SearchEngineTools
                 else
                     solveStack.Push((t as BOpToken<PositionDict>).function(solveStack.Pop(), solveStack.Pop()));
             }
-            return solveStack.Pop().Select(x => paragraph[x.Key]);
+            return solveStack.Pop().Select(x => GetDocument(x.Key));
+        }
+        private string GetDocument(Guid g)
+        {
+            return File.ReadAllText(string.Format("{0}/{1}", path_docs, g.ToString("N")));
         }
 
-        public static Index CreateIndex(IEnumerable<string> docs, out Statistic stat)
+        public static Index CreateIndex(IEnumerable<Tuple<Guid, string>> docs, string path_to_docs, out Statistic stat)
         {
             Index res = new Index();
+            res.path_docs = path_to_docs;
             stat = new Statistic();
-            int i = 0;
             Stopwatch time = new Stopwatch();
             time.Start();
             foreach (var par in docs)
             {
-                res.paragraph.Add(par);
                 int wordPos = 0;
-                foreach (string word in ParseHelper.FindAllWords(par))
+                foreach (string word in ParseHelper.FindAllWords(par.Item2))
                 {
                     stat.TokenCount++;
                     stat.TokenSummaryLength += word.Length;
                     PositionDict tmp;
                     var nword = res.normalizer.NormalizeWord(word);
                     if (res.index.TryGetValue(nword, out tmp))
-                        if (tmp.ContainsKey(i))
-                            tmp[i].Add(wordPos);
+                        if (tmp.ContainsKey(par.Item1))
+                            tmp[par.Item1].Add(wordPos);
                         else
-                            tmp.Add(i, new Set { wordPos });
+                            tmp.Add(par.Item1, new Set { wordPos });
                     else
                     {
                         res.index.Add(nword,
                             new PositionDict
                             {
-                                { i, new Set { wordPos } }
+                                { par.Item1, new Set { wordPos } }
                             });
                         stat.TermCount++;
                         stat.TermSummaryLength += nword.Length;
                     }
                     wordPos++;
                 }
-                i++;
             }
             stat.CreatingTime = time.Elapsed;
             time.Stop();
             res.ext = new BooleanTokenExtractor(res);
             return res;
         }
+
 
         public void Serialize(string filePath)
         {
@@ -375,17 +405,13 @@ namespace SearchEngineTools
                     bw.Write(t.Value.Count);
                     foreach (var v in t.Value)
                     {
-                        bw.Write(v.Key);
+                        bw.Write(v.Key.ToByteArray());
                         bw.Write(v.Value.Count);
                         foreach (var p in v.Value)
                             bw.Write(p);
                     }
                 }
-                bw.Write(paragraph.Count);
-                foreach (var p in paragraph)
-                {
-                    bw.Write(p);
-                }
+                bw.Write(path_docs);
             }
         }
 
@@ -402,7 +428,7 @@ namespace SearchEngineTools
                     PositionDict tmp = new PositionDict();
                     for (int k = 0; k < scount; ++k)
                     {
-                        int docId = br.ReadInt32();
+                        Guid docId = new Guid(br.ReadBytes(16));
                         int pCount = br.ReadInt32();
                         Set s = new Set();
                         for (int p = 0; p < pCount; ++p)
@@ -413,11 +439,7 @@ namespace SearchEngineTools
                     }
                     ind.index.Add(name, tmp);
                 }
-                count = br.ReadInt32();
-                for (int i = 0; i < count; ++i)
-                {
-                    ind.paragraph.Add(br.ReadString());
-                }
+                ind.path_docs = br.ReadString();
             }
             ind.ext = new BooleanTokenExtractor(ind);
             return ind;
