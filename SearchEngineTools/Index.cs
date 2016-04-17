@@ -1,5 +1,6 @@
 ﻿using Iveonik.Stemmers;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -211,7 +212,7 @@ namespace SearchEngineTools
         public bool ContainsSubSeq(IEnumerable<string> text, IList<string> quote)
         {
             int i = 0;
-            foreach(var word in text)
+            foreach (var word in text)
             {
                 if (i == quote.Count)
                     return true;
@@ -331,10 +332,10 @@ namespace SearchEngineTools
                 {
                     bw.Write(t.Key);
                     bw.Write(t.Value.Count);
-                    for (int i = 0; i < t.Value.Count; ++i)
-                    {
-                        bw.Write(t.Value.ElementAt(i));
-                    }
+                    var list = t.Value.ToList();
+                    bw.Write(list[0]);
+                    for (int i = 1; i < t.Value.Count; ++i)
+                        bw.Write(list[i] - list[i - 1]);
                 }
                 bw.Write(paragraph.Count);
                 foreach (var p in paragraph)
@@ -344,8 +345,53 @@ namespace SearchEngineTools
             }
         }
 
+        private static byte[] WriteCompressedInt(int val)
+        {
+            int max = (int)Math.Ceiling(LastBit(val) / 7.0);
+            byte[] result = new byte[max];
+            BitArray ba = new BitArray(new[] { val });
+            for (int i = 0, k = -1; k < max; ++i)
+            {
+                if (i % 7 == 0)
+                {
+                    k++;
+                    i = 0;
+                }
+                if (ba[7 * k + i])
+                    result[k] += (byte)(1 << i);
+            }
+            result[max-1] += 128;
+            return result;
+        }
+
+        static int LastBit(int val)
+        {
+            for (int i = 0; i < 32; ++i)
+            {
+                if (val >> i == 0)
+                    return i;
+            }
+            return 32;
+        }
+
+        private static int ReadCompressedInt(BinaryReader sr)
+        {
+            byte cur;
+            int val = 0;
+            while ((cur = sr.ReadByte()) < 128)
+            {
+
+            }
+            cur -= 128;
+            return 0;
+        }
         public static Index Deserialize(string filePath)
         {
+            while (true)
+            {
+                int y = 127;
+                WriteCompressedInt(y);
+            }
             Index ind = new Index();
             using (var br = new BinaryReader(new FileStream(filePath, FileMode.Open, FileAccess.Read)))
             {
@@ -354,12 +400,11 @@ namespace SearchEngineTools
                 {
                     string name = br.ReadString();
                     int scount = br.ReadInt32();
-                    Set s = new Set();
-                    for (int k = 0; k < scount; ++k)
-                    {
-                        s.Add(br.ReadInt32());
-                    }
-                    ind.index.Add(name, s);
+                    List<int> list = new List<int>();
+                    list.Add(br.ReadInt32());
+                    for (int k = 1; k < scount; ++k)
+                        list.Add(list[k - 1] + br.ReadInt32());
+                    ind.index.Add(name, new Set(list));
                 }
                 count = br.ReadInt32();
                 for (int i = 0; i < count; ++i)
