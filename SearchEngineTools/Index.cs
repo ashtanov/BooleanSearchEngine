@@ -335,7 +335,7 @@ namespace SearchEngineTools
                     var list = t.Value.ToList();
                     bw.Write(list[0]);
                     for (int i = 1; i < t.Value.Count; ++i)
-                        bw.Write(list[i] - list[i - 1]);
+                        bw.Write(list[i]);
                 }
                 bw.Write(paragraph.Count);
                 foreach (var p in paragraph)
@@ -345,53 +345,8 @@ namespace SearchEngineTools
             }
         }
 
-        private static byte[] WriteCompressedInt(int val)
-        {
-            int max = (int)Math.Ceiling(LastBit(val) / 7.0);
-            byte[] result = new byte[max];
-            BitArray ba = new BitArray(new[] { val });
-            for (int i = 0, k = -1; k < max; ++i)
-            {
-                if (i % 7 == 0)
-                {
-                    k++;
-                    i = 0;
-                }
-                if (ba[7 * k + i])
-                    result[k] += (byte)(1 << i);
-            }
-            result[max-1] += 128;
-            return result;
-        }
-
-        static int LastBit(int val)
-        {
-            for (int i = 0; i < 32; ++i)
-            {
-                if (val >> i == 0)
-                    return i;
-            }
-            return 32;
-        }
-
-        private static int ReadCompressedInt(BinaryReader sr)
-        {
-            byte cur;
-            int val = 0;
-            while ((cur = sr.ReadByte()) < 128)
-            {
-
-            }
-            cur -= 128;
-            return 0;
-        }
         public static Index Deserialize(string filePath)
         {
-            while (true)
-            {
-                int y = 127;
-                WriteCompressedInt(y);
-            }
             Index ind = new Index();
             using (var br = new BinaryReader(new FileStream(filePath, FileMode.Open, FileAccess.Read)))
             {
@@ -403,7 +358,7 @@ namespace SearchEngineTools
                     List<int> list = new List<int>();
                     list.Add(br.ReadInt32());
                     for (int k = 1; k < scount; ++k)
-                        list.Add(list[k - 1] + br.ReadInt32());
+                        list.Add(br.ReadInt32());
                     ind.index.Add(name, new Set(list));
                 }
                 count = br.ReadInt32();
