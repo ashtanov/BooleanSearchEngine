@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Set = System.Collections.Generic.SortedSet<int>;
+using PositionDict = System.Collections.Generic.SortedDictionary<int, System.Collections.Generic.SortedSet<int>>;
 
 namespace SearchEngineTools
 {
@@ -21,7 +22,19 @@ namespace SearchEngineTools
     }
     public class Index
     {
-        class BooleanTokenExtractor : ITokenExtractor<Set>
+        class PairCopmarer : IEqualityComparer<KeyValuePair<int, Set>>
+        {
+            public bool Equals(KeyValuePair<int, Set> x, KeyValuePair<int, Set> y)
+            {
+                return x.Key.Equals(y.Key);
+            }
+
+            public int GetHashCode(KeyValuePair<int, Set> obj)
+            {
+                return obj.Key.GetHashCode();
+            }
+        }
+        class BooleanTokenExtractor : ITokenExtractor<PositionDict>
         {
             Index ind;
             public BooleanTokenExtractor(Index index)
@@ -29,32 +42,38 @@ namespace SearchEngineTools
                 ind = index;
             }
             static Regex ext = new Regex(@"[^\s«_,\.\(\)\[\]\{\}\?\!'&\|""]+|&|\||\!|\(|\)");
-            public List<Token<Set>> SplitInput(string input, bool quote)
+            public List<Token<PositionDict>> SplitInput(string input, bool quote)
             {
-                List<Token<Set>> res = new List<Token<Set>>();
+                List<Token<PositionDict>> res = new List<Token<PositionDict>>();
                 var ttt = ext.Matches(input);
                 foreach (Match m in ttt)
                 {
-                    Token<Set> t;
+                    Token<PositionDict> t;
                     switch (m.Value)
                     {
                         case "(":
-                            t = new PToken<Set> { priority = -1, lexemm = "(" };
+                            t = new PToken<PositionDict> { priority = -1, lexemm = "(" };
                             break;
                         case ")":
-                            t = new PToken<Set> { priority = 10, lexemm = ")" };
+                            t = new PToken<PositionDict> { priority = 10, lexemm = ")" };
                             break;
                         case "&":
-                            t = new BOpToken<Set> { priority = 4, function = StubSmartIntersect, lexemm = "&" };
+                            t = new BOpToken<PositionDict> { priority = 4, function = StubSmartIntersect, lexemm = "&" };
                             break;
                         case "|":
-                            t = new BOpToken<Set> { priority = 2, function = (x, y) => new Set(x.Union(y)), lexemm = "|" };
+                            t = new BOpToken<PositionDict>
+                            {
+                                priority = 2,
+                                function =
+                                (x, y) => new PositionDict(x.Union(y, new PairCopmarer()).ToDictionary(k => k.Key, k => k.Value)),
+                                lexemm = "|"
+                            };
                             break;
                         case "!":
-                            t = new UOpToken<Set> { priority = 5, function = (x) => new Set(Enumerable.Range(0, ind.paragraph.Count).Except(x)), lexemm = "!" };
+                            t = new UOpToken<PositionDict> { priority = 5, function = (x) => { throw new NotImplementedException(); }, lexemm = "!" };
                             break;
                         default:
-                            t = new ValueToken<Set>(ind[quote ? m.Value : ind.normalizer.NormalizeWord(m.Value)]) { lexemm = string.Concat("'", m.Value, "'") };
+                            t = new ValueToken<PositionDict>(ind[quote ? m.Value : ind.normalizer.NormalizeWord(m.Value)]) { lexemm = string.Concat("'", m.Value, "'") };
                             break;
 
                     }
@@ -63,60 +82,27 @@ namespace SearchEngineTools
                 return res;
             }
 
-            Set Intersect(Set a, Set b, out int compares)
-            {
-                Console.WriteLine("Обычный {0}", new Set(a.Intersect(b)).Count);
-                List<int> first, second;
-                Set result = new Set();
-                first = b.ToList();
-                second = a.ToList();
-                compares = 0;
-                int i = 0, k = 0;
-                while (i < first.Count && k < second.Count)
-                {
-                    compares++;
-                    if (first[i] == second[k])
-                    {
-                        result.Add(first[i]);
-                        k++;
-                        i++;
-                    }
-                    else if (first[i] < second[k])
-                        i++;
-                    else
-                        k++;
-
-                }
-                Console.WriteLine("intercount: {0}\tcomp:{1}", result.Count, compares);
-                return result;
-            }
-
-            Set SmartIntersect(Set a, Set b, int jumpa, int jumpb, out int compares)
+            PositionDict SmartIntersect(PositionDict a, PositionDict b, int jumpa, int jumpb)
             {
                 List<int> first, second;
-                Set result = new Set();
-                first = b.ToList();
-                second = a.ToList();
-                compares = 0;
+                PositionDict result = new PositionDict();
+                first = b.Keys.ToList();
+                second = a.Keys.ToList();
                 int i = 0, k = 0;
                 while (i < first.Count && k < second.Count)
                 {
                     if (first[i] == second[k])
                     {
-                        compares++;
-                        result.Add(first[i]);
+                        result.Add(first[i], new Set());
                         k++;
                         i++;
                     }
                     else if (first[i] < second[k])
-                    {
-                        compares++;
+                {
                         if (i % jumpb == 0)
                         {
-                            compares++;
                             while (i + jumpb < first.Count && first[i + jumpb] < second[k])
                             {
-                                compares++;
                                 i += jumpb;
                             }
                             i++;
@@ -126,15 +112,10 @@ namespace SearchEngineTools
                     }
                     else
                     {
-                        compares++;
                         if (k % jumpa == 0)
                         {
-                            compares++;
                             while (k + jumpa < second.Count && second[k + jumpa] < first[i])
-                            {
-                                compares++;
                                 k += jumpa;
-                            }
                             k++;
                         }
                         else
@@ -144,53 +125,32 @@ namespace SearchEngineTools
                 return result;
             }
 
-            Set CompareIntersect(Set a, Set b)
+            PositionDict StubSmartIntersect(PositionDict a, PositionDict b)
             {
-                int s_k;
-                Intersect(a, b, out s_k);
-                int[] c_ks = new int[48];
-                for (int i = 2; i < 50; ++i)
-                {
-                    SmartIntersect(a, b, i, i, out c_ks[i - 2]);
+                return SmartIntersect(a, b, (int)Math.Sqrt(a.Count), (int)Math.Sqrt(b.Count));
                 }
-                int sm_k;
-                var res = SmartIntersect(a, b, (int)Math.Sqrt(a.Count), (int)Math.Sqrt(b.Count), out sm_k);
-                string format = string.Format("{0}\n{1}\n{2}\n{3}",
-                    string.Join(";", c_ks),
-                    string.Join(";", c_ks.Select(x => s_k)),
-                    string.Join(";", c_ks.Select(x => sm_k)),
-                    string.Join(";", c_ks.Select((x, i) => i + 2)));
-                File.WriteAllText("stat.csv", format);
-                return res;
             }
 
-            Set StubSmartIntersect(Set a, Set b)
-            {
-                int c1;
-                return SmartIntersect(a, b, (int)Math.Sqrt(a.Count), (int)Math.Sqrt(b.Count), out c1);
-            }
-        }
-
-        Dictionary<string, Set> index;
+        Dictionary<string, PositionDict> index;
         BooleanTokenExtractor ext;
         public List<string> paragraph { get; private set; }
         IWordNormalizer normalizer;
 
         Index()
         {
-            index = new Dictionary<string, Set>();
+            index = new Dictionary<string, PositionDict>();
             paragraph = new List<string>();
             normalizer = new WordCaseNormalizer();
         }
 
-        public Set this[string s]
+        public PositionDict this[string s]
         {
             get
             {
                 if (index.ContainsKey(s))
                     return index[s];
                 else
-                    return new Set();
+                    return new PositionDict();
             }
         }
 
@@ -209,6 +169,94 @@ namespace SearchEngineTools
             return Search(string.Join("&", tmp)).Where(x => ContainsSubSeq(ParseHelper.FindAllWords(x), words));
         }
 
+        public IEnumerable<string> DistanceSearch(string query)
+        {
+            var words = ParseHelper.FindAllWords(query);
+            List<Tuple<string, string, int>> tmp = new List<Tuple<string, string, int>>();
+            for(int i = 2; i < words.Count; i += 2)
+                tmp.Add(new Tuple<string, string, int>(words[i - 2], words[i], int.Parse(words[i - 1].Substring(1))));
+            List<IList<Coord>> res = new List<IList<Coord>>();
+            foreach(var ds in tmp)
+            {
+                res.Add(
+                    DistanceSearch2Docs(
+                        index[normalizer.NormalizeWord(ds.Item1)], 
+                        index[normalizer.NormalizeWord(ds.Item2)], 
+                        ds.Item3)
+                    );
+            }
+            IList<Coord> current = res[0];
+            for(int i = 1; i < res.Count; ++i)
+            {
+                List<Coord> intersect = new List<Coord>();
+                int j = 0, k = 0;
+                while (j < current.Count && k < res[i].Count)
+                    if (current[j].docId == res[i][k].docId)
+                    {
+                        if (current[j].sPos == res[i][k].fPos)
+                            intersect.Add(res[i][k]);
+                        k++;
+                        j++;
+                    }
+                    else if (current[j].docId < res[i][k].docId)
+                        j++;
+                    else
+                        k++;
+                current = intersect;
+            }
+            return current.Select(x => paragraph[x.docId]);
+        }
+
+        public class Coord
+        {
+            public int docId { get; set; }
+            public int fPos { get; set; }
+            public int sPos { get; set; }
+        }
+
+        private IList<Coord> DistanceSearch2Docs(PositionDict a, PositionDict b, int distance)
+        {
+            int i = 0, k = 0;
+            IList<int> first = a.Keys.ToList();
+            IList<int> second = b.Keys.ToList();
+            List<Coord> answer = new List<Coord>();
+            while (i < first.Count && k < second.Count)
+            {
+                if (first[i] == second[k])
+                {
+                    int docId = first[i];
+                    List<int> l = new List<int>();
+                    int fPos = 0;
+                    int sPos = 0;
+                    List<int> posA = a[docId].ToList();
+                    while (fPos < posA.Count)
+                    {
+                        List<int> posB = b[docId].ToList();
+                        while (sPos < posB.Count)
+                        {
+                            if (Math.Abs(posA[fPos] - posB[sPos]) <= distance)
+                                l.Add(posB[sPos]);
+                            else if (posB[sPos] > posA[fPos])
+                                break;
+                            sPos++;
+                        }
+                        while (l.Count != 0 && Math.Abs(l[0] - posA[fPos]) > distance)
+                            l.RemoveAt(0);
+                        foreach (var ps in l)
+                            answer.Add(new Coord { docId = docId, fPos = posA[fPos], sPos = ps });
+                        fPos++;
+                    }
+                    k++;
+                    i++;
+                }
+                else if (first[i] > second[k])
+                    k++;
+                else
+                    i++;
+
+            }
+            return answer;
+        }
         public bool ContainsSubSeq(IEnumerable<string> text, IList<string> quote)
         {
             int i = 0;
@@ -227,13 +275,13 @@ namespace SearchEngineTools
         public IEnumerable<string> Search(string query)
         {
             var tokens = ext.SplitInput(query, query.Contains("$"));
-            Stack<PToken<Set>> stack = new Stack<PToken<Set>>();
-            List<Token<Set>> output = new List<Token<Set>>();
+            Stack<PToken<PositionDict>> stack = new Stack<PToken<PositionDict>>();
+            List<Token<PositionDict>> output = new List<Token<PositionDict>>();
             foreach (var t in tokens)
             {
-                if (t is PToken<Set>)
+                if (t is PToken<PositionDict>)
                 {
-                    PToken<Set> pt = t as PToken<Set>;
+                    PToken<PositionDict> pt = t as PToken<PositionDict>;
                     if (stack.Count == 0)
                         stack.Push(pt);
                     else if (pt.priority == 10)
@@ -262,17 +310,17 @@ namespace SearchEngineTools
             {
                 output.Add(stack.Pop());
             }
-            Stack<Set> solveStack = new Stack<Set>();
+            Stack<PositionDict> solveStack = new Stack<PositionDict>();
             foreach (var t in output)
             {
-                if (t is ValueToken<Set>)
-                    solveStack.Push((t as ValueToken<Set>).value);
-                else if (t is UOpToken<Set>)
-                    solveStack.Push((t as UOpToken<Set>).function(solveStack.Pop()));
+                if (t is ValueToken<PositionDict>)
+                    solveStack.Push((t as ValueToken<PositionDict>).value);
+                else if (t is UOpToken<PositionDict>)
+                    solveStack.Push((t as UOpToken<PositionDict>).function(solveStack.Pop()));
                 else
-                    solveStack.Push((t as BOpToken<Set>).function(solveStack.Pop(), solveStack.Pop()));
+                    solveStack.Push((t as BOpToken<PositionDict>).function(solveStack.Pop(), solveStack.Pop()));
             }
-            return solveStack.Pop().Select(x => paragraph[x]);
+            return solveStack.Pop().Select(x => paragraph[x.Key]);
         }
 
         public static Index CreateIndex(IEnumerable<string> docs, out Statistic stat)
@@ -284,36 +332,30 @@ namespace SearchEngineTools
             time.Start();
             foreach (var par in docs)
             {
-                string prevWord = null;
                 res.paragraph.Add(par);
+                int wordPos = 0;
                 foreach (string word in ParseHelper.FindAllWords(par))
                 {
-                    if (prevWord != null)
-                    {
-                        string pair = prevWord + "$" + word;
-                        Set ss1;
-                        if (res.index.TryGetValue(pair, out ss1))
-                            ss1.Add(i);
-                        else
-                        {
-                            res.index.Add(pair, new Set { i });
-                            stat.TermCount++;
-                            stat.TermSummaryLength += word.Length;
-                        }
-                    }
                     stat.TokenCount++;
                     stat.TokenSummaryLength += word.Length;
-                    Set ss;
+                    PositionDict tmp;
                     var nword = res.normalizer.NormalizeWord(word);
-                    if (res.index.TryGetValue(nword, out ss))
-                        ss.Add(i);
+                    if (res.index.TryGetValue(nword, out tmp))
+                        if (tmp.ContainsKey(i))
+                            tmp[i].Add(wordPos);
+                        else
+                            tmp.Add(i, new Set { wordPos });
                     else
                     {
-                        res.index.Add(nword, new Set { i });
+                        res.index.Add(nword,
+                            new PositionDict
+                            {
+                                { i, new Set { wordPos } }
+                            });
                         stat.TermCount++;
                         stat.TermSummaryLength += nword.Length;
                     }
-                    prevWord = word;
+                    wordPos++;
                 }
                 i++;
             }
@@ -332,15 +374,27 @@ namespace SearchEngineTools
                 {
                     bw.Write(t.Key);
                     bw.Write(t.Value.Count);
-                    var list = t.Value.ToList();
-                    bw.Write(list[0]);
-                    for (int i = 1; i < t.Value.Count; ++i)
-                        bw.Write(list[i]);
-                }
-                bw.Write(paragraph.Count);
-                foreach (var p in paragraph)
-                {
-                    bw.Write(p);
+                    List<int> docIds = t.Value.Keys.ToList();
+                    bw.Write(docIds[0]);
+                    List<int> coord1 = t.Value[docIds[0]].ToList();
+                    bw.Write(coord1.Count);
+                    bw.Write(coord1[0]);
+                    for (int k = 1; k < coord1.Count; ++k)
+                        bw.WriteCompressedInt(coord1[k] - coord1[k - 1]);
+                    for (int i = 1; i < docIds.Count; ++i)
+                    {
+                        bw.WriteCompressedInt(docIds[i]-docIds[i-1]);
+                        bw.Write(t.Value[docIds[i]].Count);
+                        List<int> coord = t.Value[docIds[i]].ToList();
+                        bw.Write(coord[0]);
+                        for(int k = 1; k < coord.Count; ++k) 
+                            bw.WriteCompressedInt(coord[k]-coord[k-1]);
+                    }
+                    //bw.Write(paragraph.Count);
+                    //foreach (var p in paragraph)
+                    //{
+                    //    bw.Write(p);
+                    //}
                 }
             }
         }
@@ -355,11 +409,19 @@ namespace SearchEngineTools
                 {
                     string name = br.ReadString();
                     int scount = br.ReadInt32();
-                    List<int> list = new List<int>();
-                    list.Add(br.ReadInt32());
-                    for (int k = 1; k < scount; ++k)
-                        list.Add(br.ReadInt32());
-                    ind.index.Add(name, new Set(list));
+                    PositionDict tmp = new PositionDict();
+                    for (int k = 0; k < scount; ++k)
+                    {
+                        int docId = br.ReadInt32();
+                        int pCount = br.ReadInt32();
+                        Set s = new Set();
+                        for (int p = 0; p < pCount; ++p)
+                        {
+                            s.Add(br.ReadInt32());
+                        }
+                        tmp.Add(docId, s);
+                    }
+                    ind.index.Add(name, tmp);
                 }
                 count = br.ReadInt32();
                 for (int i = 0; i < count; ++i)
