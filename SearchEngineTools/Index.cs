@@ -365,6 +365,11 @@ namespace SearchEngineTools
             return res;
         }
 
+        public void IntWrite(BinaryWriter bw, int i)
+        {
+            bw.WriteCompressedInt(i);
+        }
+
         public void Serialize(string filePath)
         {
             using (var bw = new BinaryWriter(new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write)))
@@ -373,22 +378,22 @@ namespace SearchEngineTools
                 foreach (var t in index)
                 {
                     bw.Write(t.Key);
-                    bw.Write(t.Value.Count);
+                    IntWrite(bw, t.Value.Count);
                     List<int> docIds = t.Value.Keys.ToList();
                     bw.Write(docIds[0]);
                     List<int> coord1 = t.Value[docIds[0]].ToList();
-                    bw.Write(coord1.Count);
+                    IntWrite(bw, coord1.Count);
                     bw.Write(coord1[0]);
                     for (int k = 1; k < coord1.Count; ++k)
-                        bw.WriteCompressedInt(coord1[k] - coord1[k - 1]);
+                        IntWrite(bw, coord1[k] - coord1[k - 1]);
                     for (int i = 1; i < docIds.Count; ++i)
                     {
-                        bw.WriteCompressedInt(docIds[i]-docIds[i-1]);
-                        bw.Write(t.Value[docIds[i]].Count);
+                        IntWrite(bw, docIds[i]-docIds[i-1]);
+                        IntWrite(bw, t.Value[docIds[i]].Count);
                         List<int> coord = t.Value[docIds[i]].ToList();
                         bw.Write(coord[0]);
                         for(int k = 1; k < coord.Count; ++k) 
-                            bw.WriteCompressedInt(coord[k]-coord[k-1]);
+                            IntWrite(bw, coord[k]-coord[k-1]);
                     }
                     //bw.Write(paragraph.Count);
                     //foreach (var p in paragraph)
