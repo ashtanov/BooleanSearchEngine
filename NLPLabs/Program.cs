@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Linq;
+using System.Runtime.Serialization.Formatters;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -44,7 +47,10 @@ namespace NLPLabs
         private static Dictionary<string, Dictionary<Bigramm, int>> trigramm;
         private static int trigrammcount = 0;
         private static Dictionary<Bigramm, int> bigramm;
+        private static int bigrmmcount = 0;
         private static Dictionary<string, int> unigramm;
+        private static int unigrammcount = 0;
+
         static string[] corpus;
 
 
@@ -55,15 +61,37 @@ namespace NLPLabs
         static void Main(string[] args)
         {
             //Collocations();
-
+            InitModel();
             corpus = File.ReadAllLines(@"E:\rus_news_2010_300K-sentences.txt").ToArray();
+            //GetValue();
+            CreateModel(corpus);
+            while (true)
+            {
+                Console.WriteLine("Ready:");
+                var sr = Console.ReadLine();
+                Stopwatch sw = new Stopwatch();
+                sw.Start();
+                Console.WriteLine(string.Join(" ", SpellCheck(ParseSentence(sr))));
+                Console.WriteLine(sw.Elapsed);
+            }
+            var yyy = SpellCheck(ParseSentence("мама мыла раму"));
+            int a = 0;
+        }
+
+        private static void InitModel()
+        {
+            trigramm = new Dictionary<string, Dictionary<Bigramm, int>>();
+            bigramm = new Dictionary<Bigramm, int>();
+            unigramm = new Dictionary<string, int>();
+        }
+
+        private static void GetValue()
+        {
             string[] test;
             string[] train;
             for (int k = 0; k < 100; ++k)
             {
-                trigramm = new Dictionary<string, Dictionary<Bigramm, int>>();
-                bigramm = new Dictionary<Bigramm, int>();
-                unigramm = new Dictionary<string, int>();
+                InitModel();
                 SplitCorpus(corpus, 0.2, out train, out test);
                 CreateModel(train);
                 double counter = 0;
@@ -77,7 +105,72 @@ namespace NLPLabs
                 var trainEstimate = counter / train.Length;
                 Console.WriteLine($"train: {trainEstimate}\ntest: {testEstimate}");
             }
-            int a = 0;
+        }
+
+
+        public static string[] SpellCheck(string[] words)
+        {
+            List<Dictionary<string, double>> hypothesis = new List<Dictionary<string, double>>();
+            for (int i = 0; i < words.Length; ++i)
+            {
+                hypothesis.Add(new Dictionary<string, double>());
+                if (unigramm.ContainsKey(words[i]) && unigramm[words[i]] > 3)
+                    hypothesis[i].Add(words[i], 1);
+                foreach (var h in Minified.Edits1(words[i]).Where(x => unigramm.ContainsKey(x) && unigramm[x] > 3))
+                    hypothesis[i].TryAdd(h, 0.03, (o, n) => o);
+                foreach (var h in Minified.Edits2(words[i]).Where(x => unigramm.ContainsKey(x) && unigramm[x] > 3))
+                    hypothesis[i].TryAdd(h, 0.001, (o, n) => o);
+            }
+            List<List<double>> TState = new List<List<double>>();
+            List<List<int>> TIndex = new List<List<int>>();
+            TState.Add(new List<double>());
+            TIndex.Add(new List<int>());
+            foreach (var h in hypothesis[0])
+            {
+                TState[0].Add(h.Value);
+                TIndex[0].Add(-1);
+            }
+            for (int i = 1; i < words.Length; ++i)
+            {
+                TState.Add(new List<double>());
+                TIndex.Add(new List<int>());
+                foreach (var h in hypothesis[i])
+                {
+                    double max = 0;
+                    int mind = 0;
+
+                    for (int k = 0; k < hypothesis[i - 1].Count; ++k)
+                    {
+                        Bigramm b = new Bigramm(h.Key, hypothesis[i - 1].ElementAt(k).Key);
+                        double bscore = 0;
+                        if (bigramm.ContainsKey(b))
+                            bscore = bigramm[b];
+                        else
+                            bscore = 0;
+                        double curr = h.Value * (bscore + 0.01) / (bigramm.Count * 1.001);
+                        if (curr > max)
+                        {
+                            max = curr;
+                            mind = k;
+                        }
+                    }
+                    TState[i].Add(max);
+                    TIndex[i].Add(mind);
+                }
+            }
+            List<int> res = new List<int>();
+            res.Add(TState[words.Length - 1].Select((c, r) => new { i = c, v = r }).OrderByDescending(c => c.i).First().v);
+            for (int l = words.Length - 1; l >= 1; --l)
+                res.Add(TIndex[l][res[res.Count - 1]]);
+            res.Reverse();
+            string[] resSen = new string[words.Length];
+            for (var ind = 0; ind < res.Count; ++ind)
+            {
+                resSen[ind] = hypothesis[ind].ElementAt(res[ind]).Key;
+            }
+
+
+            return resSen;
         }
 
         public static void SplitCorpus(string[] corpus, double percent, out string[] train, out string[] test)
@@ -113,7 +206,7 @@ namespace NLPLabs
                 tscore = 0;
             else if (!tmp.TryGetValue(b, out tscore))
                 tscore = 0;
-            return (tscore + alpha)  / (bscore + alpha * unigramm.Count);
+            return (tscore + alpha) / (bscore + alpha * unigramm.Count);
         }
 
         public static string[] ParseSentence(string s)
@@ -172,6 +265,7 @@ namespace NLPLabs
                     bigramm.TryAdd(b2, 1, (o, n) => o + n);
                     //1
                     unigramm.TryAdd(curr_word, 1, (o, n) => o + n);
+                    unigrammcount++;
 
                     prev2_word = prev_word;
                     prev_word = curr_word;
