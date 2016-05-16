@@ -272,46 +272,46 @@ namespace SearchEngineTools
         //    return solveStack.Pop().Select(x => paragraph[x.Key]);
         //}
 #endregion
-        public static Index CreateIndex(IEnumerable<Document> docs, out Statistic stat)
-        {
-            Index res = new Index();
-            stat = new Statistic();
-            int i = 0;
-            Stopwatch time = new Stopwatch();
-            time.Start();
-            foreach (var par in docs)
-            {
-                int wordPos = 0;
-                foreach (string word in ParseHelper.FindAllWords(par))
-                {
-                    stat.TokenCount++;
-                    stat.TokenSummaryLength += word.Length;
-                    PositionDict tmp;
-                    var nword = res.normalizer.NormalizeWord(word);
-                    if (res.index.TryGetValue(nword, out tmp))
-                        if (tmp.ContainsKey(i))
-                            tmp[i].Add(wordPos);
-                        else
-                            tmp.Add(i, new Set { wordPos });
-                    else
-                    {
-                        res.index.Add(nword,
-                            new PositionDict
-                            {
-                                { i, new Set { wordPos } }
-                            });
-                        stat.TermCount++;
-                        stat.TermSummaryLength += nword.Length;
-                    }
-                    wordPos++;
-                }
-                i++;
-            }
-            stat.CreatingTime = time.Elapsed;
-            time.Stop();
-            res.ext = new BooleanTokenExtractor(res);
-            return res;
-        }
+        //public static Index CreateIndex(IEnumerable<Document> docs, out Statistic stat)
+        //{
+        //    Index res = new Index();
+        //    stat = new Statistic();
+        //    int i = 0;
+        //    Stopwatch time = new Stopwatch();
+        //    time.Start();
+        //    foreach (var par in docs)
+        //    {
+        //        int wordPos = 0;
+        //        foreach (string word in ParseHelper.FindAllWords(par))
+        //        {
+        //            stat.TokenCount++;
+        //            stat.TokenSummaryLength += word.Length;
+        //            PositionDict tmp;
+        //            var nword = res.normalizer.NormalizeWord(word);
+        //            if (res.index.TryGetValue(nword, out tmp))
+        //                if (tmp.ContainsKey(i))
+        //                    tmp[i].Add(wordPos);
+        //                else
+        //                    tmp.Add(i, new Set { wordPos });
+        //            else
+        //            {
+        //                res.index.Add(nword,
+        //                    new PositionDict
+        //                    {
+        //                        { i, new Set { wordPos } }
+        //                    });
+        //                stat.TermCount++;
+        //                stat.TermSummaryLength += nword.Length;
+        //            }
+        //            wordPos++;
+        //        }
+        //        i++;
+        //    }
+        //    stat.CreatingTime = time.Elapsed;
+        //    time.Stop();
+        //    res.ext = new BooleanTokenExtractor(res);
+        //    return res;
+        //}
 
         public void IntWrite(BinaryWriter bw, int i)
         {

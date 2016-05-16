@@ -11,5 +11,8 @@ namespace SearchEngineTools
         protected internal string title;
         protected internal string body;
         protected internal string meta;
+        protected internal int rank;
+        protected internal string link;
+        protected internal string magnet;
     }
 }
