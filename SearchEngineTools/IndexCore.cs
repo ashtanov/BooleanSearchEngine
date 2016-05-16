@@ -14,6 +14,7 @@ namespace SearchEngineTools
 
         private string indexName;
         private IWordNormalizer normalizer;
+        private IDocumentStorage storage;
         Dictionary<string, Set> index;
 
         public IndexCore() : this(Guid.NewGuid().ToString("N"))
@@ -33,7 +34,7 @@ namespace SearchEngineTools
 
         public void AddRange(IEnumerable<Document> docs)
         {
-
+            storage.AddRange(docs);
         }
 
         private void IntWrite(BinaryWriter bw, int i)

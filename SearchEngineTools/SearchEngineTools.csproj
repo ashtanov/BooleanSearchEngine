@@ -44,8 +44,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DirectoryStorage.cs" />
     <Compile Include="Document.cs" />
     <Compile Include="Extensions.cs" />
+    <Compile Include="IDocumentStorage.cs" />
     <Compile Include="Index.cs" />
     <Compile Include="IndexCore.cs" />
     <Compile Include="IntCompressor.cs" />
