@@ -18,6 +18,13 @@ namespace IndexWebApi
                     UriTemplate = "/Find?query={query}")]
         [OperationContract]
         IndDocument[] Find(string query);
+
+        [WebInvoke(Method = "POST",
+                    ResponseFormat = WebMessageFormat.Json,
+                    RequestFormat = WebMessageFormat.Json,
+                    UriTemplate = "/Add")]
+        [OperationContract]
+        int AddDocuments(string value);
     }
 
 
