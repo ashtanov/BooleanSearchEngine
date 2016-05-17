@@ -14,22 +14,25 @@ namespace TestEnviroment
     {
         static void Main(string[] args)
         {
-            MongoStorage ms = new MongoStorage();
-            for (int i = 0; i < 100000; ++i)
-            {
-                Document doc = new Document
-                {
-                    extId = i,
-                    body = "asldk",
-                    link = "asd",
-                    meta = "asdkl",
-                    magnet = " kjd",
-                    rank = 1,
-                    title = "d;l"
-                };
-                ms.AddAsync(doc);
-            }
-            Console.WriteLine("Wait");
+            //MongoStorage ms = new MongoStorage();
+            //for (int i = 0; i < 100000; ++i)
+            //{
+            //    Document doc = new Document
+            //    {
+            //        extId = i,
+            //        body = "asldk",
+            //        link = "asd",
+            //        meta = "asdkl",
+            //        magnet = " kjd",
+            //        rank = 1,
+            //        title = "d;l"
+            //    };
+            //    ms.AddAsync(doc);
+            //}
+            //Console.WriteLine("Wait");
+            var currentId = 10;
+            int t;
+            t = Interlocked.Increment(ref currentId);
             Console.ReadKey();
         }
     }

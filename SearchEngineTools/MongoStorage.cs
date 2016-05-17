@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Threading;
 
 namespace SearchEngineTools
 {
@@ -35,7 +36,7 @@ namespace SearchEngineTools
                     }
                 }
             };
-            PipelineDefinition<Document,BsonDocument> pipeline = new []
+            PipelineDefinition<Document, BsonDocument> pipeline = new[]
             {
                 match
             };
@@ -46,9 +47,9 @@ namespace SearchEngineTools
         {
             try
             {
-                doc.Id = currentId;
+                doc.Id = Interlocked.Increment(ref currentId);
                 coll.InsertOne(doc);
-                return 1;
+                return doc.Id;
             }
             catch (AggregateException)
             {
@@ -60,21 +61,22 @@ namespace SearchEngineTools
             }
         }
 
-        public int AddRange(IEnumerable<Document> docs)
+        public IList<int> AddRange(IEnumerable<Document> docs)
         {
             try
             {
-                //переназначить id!!
+                foreach(var t in docs)
+                    t.Id = Interlocked.Increment(ref currentId);
                 coll.InsertMany(docs);
-                return docs.Count();
+                return docs.Select(x => x.Id).ToList();
             }
             catch (AggregateException)
             {
-                return -1;
+                return new int[] { -1 };
             }
             catch
             {
-                return -100;
+                return new int[] { -100 };
             }
         }
 
@@ -87,9 +89,9 @@ namespace SearchEngineTools
         {
             try
             {
-                doc.Id = currentId;
+                doc.Id = Interlocked.Increment(ref currentId);
                 await coll.InsertOneAsync(doc);
-                return 1;
+                return doc.Id;
             }
             catch (AggregateException)
             {
@@ -101,21 +103,22 @@ namespace SearchEngineTools
             }
         }
 
-        public async Task<int> AddRangeAsync(IEnumerable<Document> docs)
+        public async Task<IList<int>> AddRangeAsync(IEnumerable<Document> docs)
         {
             try
             {
-                //переназначить id!!
+                foreach (var t in docs)
+                    t.Id = Interlocked.Increment(ref currentId);
                 await coll.InsertManyAsync(docs);
-                return docs.Count();
+                return docs.Select(x => x.Id).ToList();
             }
             catch (AggregateException)
             {
-                return -1;
+                return new int[] { -1 };
             }
             catch
             {
-                return -100;
+                return new int[] { -100 };
             }
         }
     }
