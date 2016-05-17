@@ -4,15 +4,17 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{BF51F135-B74C-437C-A6A0-65B694F3E78A}</ProjectGuid>
-    <OutputType>Library</OutputType>
+    <ProjectGuid>{E0EFADB4-6C0B-45AB-B5BC-DF1C431B99A5}</ProjectGuid>
+    <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>SearchEngineTools</RootNamespace>
-    <AssemblyName>SearchEngineTools</AssemblyName>
+    <RootNamespace>TestEnviroment</RootNamespace>
+    <AssemblyName>TestEnviroment</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -22,6 +24,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
@@ -31,23 +34,19 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="MongoDB.Bson, Version=2.2.3.3, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\MongoDB.Bson.2.2.3\lib\net45\MongoDB.Bson.dll</HintPath>
+      <HintPath>..\SearchEngineTools\packages\MongoDB.Bson.2.2.3\lib\net45\MongoDB.Bson.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="MongoDB.Driver, Version=2.2.3.3, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\MongoDB.Driver.2.2.3\lib\net45\MongoDB.Driver.dll</HintPath>
+      <HintPath>..\SearchEngineTools\packages\MongoDB.Driver.2.2.3\lib\net45\MongoDB.Driver.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="MongoDB.Driver.Core, Version=2.2.3.3, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\MongoDB.Driver.Core.2.2.3\lib\net45\MongoDB.Driver.Core.dll</HintPath>
+      <HintPath>..\SearchEngineTools\packages\MongoDB.Driver.Core.2.2.3\lib\net45\MongoDB.Driver.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=8.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>packages\Newtonsoft.Json.8.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="StemmersNet, Version=1.1.1.0, Culture=neutral, PublicKeyToken=5b16b226aedf3c3b, processorArchitecture=MSIL">
-      <HintPath>packages\StemmersNet.1.1.1.0\lib\net20\StemmersNet.dll</HintPath>
+      <HintPath>..\SearchEngineTools\packages\Newtonsoft.Json.8.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
@@ -60,21 +59,26 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DirectoryStorage.cs" />
-    <Compile Include="Document.cs" />
-    <Compile Include="Extensions.cs" />
-    <Compile Include="IDocumentStorage.cs" />
-    <Compile Include="Index.cs" />
-    <Compile Include="IndexCore.cs" />
-    <Compile Include="IntCompressor.cs" />
-    <Compile Include="MongoStorage.cs" />
+    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Token.cs" />
-    <Compile Include="ParseHelper.cs" />
-    <Compile Include="WordNormalizer.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="App.config" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\IndexWebApi\IndexWebApi.csproj">
+      <Project>{7a6d0521-a6a3-4c91-aa59-baae8db1217d}</Project>
+      <Name>IndexWebApi</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\InfoExtracter\InfoExtractor.csproj">
+      <Project>{fb3cf9e0-562a-4307-9b21-d9f555f531f4}</Project>
+      <Name>InfoExtractor</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SearchEngineTools\SearchEngineTools.csproj">
+      <Project>{bf51f135-b74c-437c-a6a0-65b694f3e78a}</Project>
+      <Name>SearchEngineTools</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

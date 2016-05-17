@@ -6,6 +6,7 @@ using System.Runtime.Serialization;
 using System.ServiceModel;
 using System.ServiceModel.Web;
 using System.Text;
+using System.Web.Services.Discovery;
 
 namespace IndexWebApi
 {
@@ -66,6 +67,32 @@ namespace IndexWebApi
         public string Magnet
         {
             get; set;
+        }
+
+        public static implicit operator Document(IndDocument doc)
+        {
+            return new Document
+            {
+                body = doc.Body,
+                link = doc.Link,
+                magnet = doc.Magnet,
+                meta = doc.Meta,
+                rank = doc.Rank,
+                title = doc.Title
+            };
+        }
+
+        public static implicit operator IndDocument(Document doc)
+        {
+            return new IndDocument
+            {
+                Body = doc.body,
+                Link = doc.link,
+                Magnet = doc.magnet,
+                Meta = doc.meta,
+                Rank = doc.rank,
+                Title = doc.title
+            };
         }
     }
 }

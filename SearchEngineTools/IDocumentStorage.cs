@@ -10,6 +10,8 @@ namespace SearchEngineTools
     {
         int Add(Document doc);
         int AddRange(IEnumerable<Document> docs);
+        Task<int> AddAsync(Document doc);
+        Task<int> AddRangeAsync(IEnumerable<Document> docs);
         Document Get(int id);
     }
 }

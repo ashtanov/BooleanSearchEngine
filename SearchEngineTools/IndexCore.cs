@@ -25,6 +25,7 @@ namespace SearchEngineTools
             indexName = name;
             normalizer = new WordCaseNormalizer();
             index = new Dictionary<string, Set>();
+            storage = new MongoStorage();
         }
 
         public void Add(Document d)
@@ -35,6 +36,39 @@ namespace SearchEngineTools
         public void AddRange(IEnumerable<Document> docs)
         {
             storage.AddRange(docs);
+            foreach (var doc in docs)
+            {
+                int i = 0;
+                foreach (var word in ParseHelper.FindAllWords(doc.title))
+                {
+                    
+        //            PositionDict tmp;
+        //            var nword = res.normalizer.NormalizeWord(word);
+        //            if (res.index.TryGetValue(nword, out tmp))
+        //                if (tmp.ContainsKey(i))
+        //                    tmp[i].Add(wordPos);
+        //                else
+        //                    tmp.Add(i, new Set { wordPos });
+        //            else
+        //            {
+        //                res.index.Add(nword,
+        //                    new PositionDict
+        //                    {
+        //                        { i, new Set { wordPos } }
+        //                    });
+        //                stat.TermCount++;
+        //                stat.TermSummaryLength += nword.Length;
+        //            }
+        //            wordPos++;
+        //        }
+        //        i++;
+        //    }
+                }
+                foreach (var word in ParseHelper.FindAllWords(doc.title))
+                {
+
+                }
+            }
         }
 
         private void IntWrite(BinaryWriter bw, int i)
