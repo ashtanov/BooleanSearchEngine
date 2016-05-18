@@ -31,16 +31,19 @@ namespace TestEnviroment
             //    ms.AddAsync(doc);
             //}
             //Console.WriteLine("Wait");
-            //IndexCore ic = CreateIndex();
+            IndexCore ic = CreateIndex();
+            var yy1 = ic.DistanceSearch(new [] { "АМЕРИКУ", "В" }, 10);
+            var yy2 = ic.SearchFull(new [] { "АМЕРИКУ", "В" });
+            var yy = yy1.Select(x => x.id).Except(yy2.Select(c => c.id));
             //ic.Serialize("abc.idx");
-            IndexCore ic2 = IndexCore.Deserialize("abc.idx");
+            //IndexCore ic2 = IndexCore.Deserialize("abc.idx");
 
             Console.ReadKey();
         }
 
         static IndexCore CreateIndex()
         {
-            var file = File.ReadAllText(@"E:\games.json");
+            var file = File.ReadAllText(@"E:\films2.json");
             var t = JArray.Parse(file);
             List<Document> docs = new List<Document>();
             foreach (JObject j in t.Cast<JObject>())

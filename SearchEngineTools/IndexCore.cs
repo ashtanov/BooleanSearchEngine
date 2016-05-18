@@ -12,12 +12,11 @@ namespace SearchEngineTools
 {
     public class IndexCore
     {
-
         private string indexName;
         private IWordNormalizer normalizer;
         private IDocumentStorage storage;
-        Dictionary<int, PositionDict> index;
-        ConcurrentDictionary<int, int> idf;
+        private Dictionary<string, PositionDict> index;
+        private ConcurrentDictionary<int, int> idf;
         private Dictionary<string, int> wordToInt;
         private Dictionary<int, string> intToWord;
 
@@ -28,7 +27,7 @@ namespace SearchEngineTools
         {
             indexName = name;
             normalizer = new WordCaseNormalizer();
-            index = new Dictionary<int, PositionDict>();
+            index = new Dictionary<string, PositionDict>();
             storage = new MongoStorage();
             idf = new ConcurrentDictionary<int, int>();
             wordToInt = new Dictionary<string, int>();
@@ -46,51 +45,70 @@ namespace SearchEngineTools
             foreach (var doc in docs)
             {
                 int mPos = InsertInIndex(doc, 0, (x) => x.title);
-                InsertInIndex(doc, mPos + 10, (x) => x.description);
+                int y = InsertInIndex(doc, mPos + 10, (x) => x.description);
             }
         }
 
-        private int InsertInIndex(Document doc, int posStart, Func<Document, string> field)
+        public Document[] SearchFull(string[] queryWords)
         {
-            int wordPos = posStart;
-            foreach (var word in ParseHelper.FindAllWords(field(doc)))
+            List<List<int>> pdList = new List<List<int>>();
+            foreach (var word in queryWords)
+                pdList.Add(index[word].Keys.ToList());
+            pdList = pdList.OrderBy(x => x.Count).ToList();
+            IList<int> current = pdList[0];
+            for (int i = 1; i < pdList.Count; ++i)
+                current = SmartIntersectSimple(current, pdList[i]);
+            Document[] res = new Document[current.Count];
+            for (int i = 0; i < res.Length; ++i)
+                res[i] = storage.Get(current[i]);
+            return res;
+        }
+
+        public Document[] DistanceSearch(string[] queryWords, int distance)
+        {
+            List<Tuple<string, string>> tmp = new List<Tuple<string, string>>();
+            for (int i = 1; i < queryWords.Length; i++)
+                tmp.Add(new Tuple<string, string>(queryWords[i - 1], queryWords[i]));
+            List<IList<Coord>> res = new List<IList<Coord>>();
+            foreach (var ds in tmp)
             {
-                string nword = normalizer.NormalizeWord(word);
-                PositionDict tmp;
-
-                if (wordToInt.ContainsKey(nword) && index.TryGetValue(wordToInt[nword], out tmp))
-                {
-                    int currentid = wordToInt[nword];
-                    idf[currentid] += 1;
-                    if (tmp.ContainsKey(doc.intId))
-                        tmp[doc.intId].Add(wordPos);
-                    else
-                        tmp.Add(doc.intId, new Set { wordPos });
-                }
-                else
-                {
-                    int currentid = wordToInt.Count;
-                    wordToInt.Add(nword, currentid);
-                    intToWord.Add(currentid, nword);
-                    
-                    idf.AddOrUpdate(currentid, 1, (x, y) => y + 1);
-                    index.Add(currentid,
-                        new PositionDict
-                        {
-                            { doc.intId, new Set {wordPos} }
-                        });
-                }
-                wordPos++;
+                res.Add(
+                    DistanceSearch2Docs(
+                        index[normalizer.NormalizeWord(ds.Item1)],
+                        index[normalizer.NormalizeWord(ds.Item2)],
+                        distance)
+                    );
             }
-            return wordPos;
+            IList<Coord> current = res[0];
+            for (int i = 1; i < res.Count; ++i)
+            {
+                List<Coord> intersect = new List<Coord>();
+                int j = 0, k = 0;
+                while (j < current.Count && k < res[i].Count)
+                    if (current[j].docId == res[i][k].docId)
+                    {
+                        if (current[j].sPos == res[i][k].fPos)
+                            intersect.Add(res[i][k]);
+                        if (current[j + 1].docId == res[i][k].docId)
+                            j++;
+                        else if (res[i][k + 1].docId == current[j].docId)
+                            k++;
+                        else
+                        { 
+                            k++;
+                            j++;
+                        }
+                    }
+                    else if (current[j].docId < res[i][k].docId)
+                        j++;
+                    else
+                        k++;
+                current = intersect;
+            }
+            return current.Distinct().Select(x => storage.Get(x.docId)).ToArray();
         }
 
-
-        private void IntWrite(BinaryWriter bw, int i)
-        {
-            bw.WriteCompressedInt(i);
-        }
-
+        #region De/Serialize
         public void Serialize(string filePath)
         {
             using (var bw = new BinaryWriter(new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write)))
@@ -100,22 +118,22 @@ namespace SearchEngineTools
                 foreach (var t in index)
                 {
                     bw.Write(t.Key);
-                    IntWrite(bw, t.Value.Count);
+                    bw.WriteCompressedInt(t.Value.Count);
                     List<int> docIds = t.Value.Keys.ToList();
                     bw.Write(docIds[0]);
                     List<int> coord1 = t.Value[docIds[0]].ToList();
-                    IntWrite(bw, coord1.Count);
+                    bw.WriteCompressedInt(coord1.Count);
                     bw.Write(coord1[0]);
                     for (int k = 1; k < coord1.Count; ++k)
-                        IntWrite(bw, coord1[k] - coord1[k - 1]);
+                        bw.WriteCompressedInt(coord1[k] - coord1[k - 1]);
                     for (int i = 1; i < docIds.Count; ++i)
                     {
-                        IntWrite(bw, docIds[i] - docIds[i - 1]);
-                        IntWrite(bw, t.Value[docIds[i]].Count);
+                        bw.WriteCompressedInt(docIds[i] - docIds[i - 1]);
+                        bw.WriteCompressedInt(t.Value[docIds[i]].Count);
                         List<int> coord = t.Value[docIds[i]].ToList();
                         bw.Write(coord[0]);
                         for (int k = 1; k < coord.Count; ++k)
-                            IntWrite(bw, coord[k] - coord[k - 1]);
+                            bw.WriteCompressedInt(coord[k] - coord[k - 1]);
                     }
                 }
                 //TODO: сериализовать idf wordToInt intToWord
@@ -131,16 +149,14 @@ namespace SearchEngineTools
                 var count = br.ReadInt32();
                 for (var i = 0; i < count; ++i)
                 {
-                    var word = br.ReadInt32();
+                    var word = br.ReadString();
                     int scount = br.ReadCompressedInt();
                     int doc0 = br.ReadInt32();
                     int coord0Count = br.ReadCompressedInt();
                     int coord0 = br.ReadInt32();
                     List<int> coord0List = new List<int> { coord0 };
                     for (int k = 1; k < coord0Count; k++)
-                    {
                         coord0List.Add(coord0List[k - 1] + br.ReadCompressedInt());
-                    }
                     var tmp = new PositionDict { { doc0, new Set(coord0List) } };
                     for (int k = 1; k < scount; ++k)
                     {
@@ -150,9 +166,7 @@ namespace SearchEngineTools
                         int fCoord = br.ReadInt32();
                         List<int> coordList = new List<int> { fCoord };
                         for (int l = 1; l < coordCount; l++)
-                        {
                             coordList.Add(coordList[l - 1] + br.ReadCompressedInt());
-                        }
                         tmp.Add(docId, new Set(coordList));
                     }
                     ind.index.Add(word, tmp);
@@ -161,5 +175,165 @@ namespace SearchEngineTools
             //TODO: десериализовать idf wordToInt intToWord
             return ind;
         }
+        #endregion
+        #region Helpers
+        private IList<int> SmartIntersectSimple(IList<int> first, IList<int> second)
+        {
+            int jumpa = (int)Math.Sqrt(first.Count);
+            int jumpb = (int)Math.Sqrt(second.Count);
+            List<int> result = new List<int>();
+            int i = 0, k = 0;
+            while (i < first.Count && k < second.Count)
+            {
+                if (first[i] == second[k])
+                {
+                    result.Add(first[i]);
+                    k++;
+                    i++;
+                }
+                else if (first[i] < second[k])
+                {
+                    if (i % jumpb == 0)
+                    {
+                        while (i + jumpb < first.Count && first[i + jumpb] < second[k])
+                        {
+                            i += jumpb;
+                        }
+                        i++;
+                    }
+                    else
+                        i++;
+                }
+                else
+                {
+                    if (k % jumpa == 0)
+                    {
+                        while (k + jumpa < second.Count && second[k + jumpa] < first[i])
+                            k += jumpa;
+                        k++;
+                    }
+                    else
+                        k++;
+                }
+            }
+            return result;
+        }
+
+        private int InsertInIndex(Document doc, int posStart, Func<Document, string> field)
+        {
+            int wordPos = posStart;
+            foreach (var word in ParseHelper.FindAllWords(field(doc)))
+            {
+                string nword = normalizer.NormalizeWord(word);
+                PositionDict tmp;
+
+                if (wordToInt.ContainsKey(nword) && index.TryGetValue(nword, out tmp))
+                {
+                    int currentid = wordToInt[nword];
+                    idf[currentid] += 1;
+                    if (tmp.ContainsKey(doc.intId))
+                        tmp[doc.intId].Add(wordPos);
+                    else
+                        tmp.Add(doc.intId, new Set { wordPos });
+                }
+                else
+                {
+                    int currentid = wordToInt.Count;
+                    wordToInt.Add(nword, currentid);
+                    intToWord.Add(currentid, nword);
+
+                    idf.AddOrUpdate(currentid, 1, (x, y) => y + 1);
+                    index.Add(nword,
+                        new PositionDict
+                        {
+                            { doc.intId, new Set {wordPos} }
+                        });
+                }
+                wordPos++;
+            }
+            return wordPos;
+        }
+
+        public class Coord
+        {
+            public int docId { get; set; }
+            public int fPos { get; set; }
+            public int sPos { get; set; }
+
+            public override string ToString()
+            {
+                return $"id:{docId} {{{fPos} {sPos}}}";
+            }
+
+            public override int GetHashCode()
+            {
+                return docId;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return GetHashCode() == obj.GetHashCode();
+            }
+        }
+
+        private IList<Coord> DistanceSearch2Docs(PositionDict a, PositionDict b, int distance)
+        {
+            int i = 0, k = 0;
+            IList<int> first = a.Keys.ToList();
+            IList<int> second = b.Keys.ToList();
+            int jumpa = (int)Math.Sqrt(first.Count);
+            int jumpb = (int)Math.Sqrt(second.Count);
+            List<Coord> answer = new List<Coord>();
+            while (i < first.Count && k < second.Count)
+            {
+                if (first[i] == second[k])
+                {
+                    int docId = first[i];
+                    List<int> l = new List<int>();
+                    int fPos = 0;
+                    int sPos = 0;
+                    List<int> posA = a[docId].ToList();
+                    while (fPos < posA.Count)
+                    {
+                        List<int> posB = b[docId].ToList();
+                        while (sPos < posB.Count)
+                        {
+                            if (Math.Abs(posA[fPos] - posB[sPos]) <= distance)
+                                l.Add(posB[sPos]);
+                            else if (posB[sPos] > posA[fPos])
+                                break;
+                            sPos++;
+                        }
+                        while (l.Count != 0 && Math.Abs(l[0] - posA[fPos]) > distance)
+                            l.RemoveAt(0);
+                        foreach (var ps in l)
+                            answer.Add(new Coord { docId = docId, fPos = posA[fPos], sPos = ps });
+                        fPos++;
+                    }
+                    k++;
+                    i++;
+                }
+                else if (first[i] < second[k])
+                    if (i % jumpb == 0)
+                    {
+                        while (i + jumpb < first.Count && first[i + jumpb] < second[k])
+                            i += jumpb;
+                        i++;
+                    }
+                    else
+                        i++;
+                else
+                    if (k % jumpa == 0)
+                {
+                    while (k + jumpa < second.Count && second[k + jumpa] < first[i])
+                        k += jumpa;
+                    k++;
+                }
+                else
+                    k++;
+            }
+            return answer;
+        }
+        #endregion
     }
 }

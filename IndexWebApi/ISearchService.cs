@@ -69,30 +69,30 @@ namespace IndexWebApi
             get; set;
         }
 
-        public static implicit operator Document(IndDocument doc)
-        {
-            return new Document
-            {
-                body = doc.Body,
-                link = doc.Link,
-                magnet = doc.Magnet,
-                meta = doc.Meta,
-                rank = doc.Rank,
-                title = doc.Title
-            };
-        }
+        //public static implicit operator Document(IndDocument doc)
+        //{
+        //    return new Document
+        //    {
+        //        body = doc.Body,
+        //        link = doc.Link,
+        //        magnet = doc.Magnet,
+        //        meta = doc.Meta,
+        //        rank = doc.Rank,
+        //        title = doc.Title
+        //    };
+        //}
 
-        public static implicit operator IndDocument(Document doc)
-        {
-            return new IndDocument
-            {
-                Body = doc.body,
-                Link = doc.link,
-                Magnet = doc.magnet,
-                Meta = doc.meta,
-                Rank = doc.rank,
-                Title = doc.title
-            };
-        }
+        //public static implicit operator IndDocument(Document doc)
+        //{
+        //    return new IndDocument
+        //    {
+        //        Body = doc.body,
+        //        Link = doc.link,
+        //        Magnet = doc.magnet,
+        //        Meta = doc.meta,
+        //        Rank = doc.rank,
+        //        Title = doc.title
+        //    };
+        //}
     }
 }
