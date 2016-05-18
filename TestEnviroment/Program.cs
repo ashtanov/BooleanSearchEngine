@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.ExceptionServices;
 using System.Text;
@@ -20,7 +21,7 @@ namespace TestEnviroment
             //    Document doc = new Document
             //    {
             //        extId = i,
-            //        body = "asldk",
+            //        description = "asldk",
             //        link = "asd",
             //        meta = "asdkl",
             //        magnet = " kjd",
@@ -30,10 +31,30 @@ namespace TestEnviroment
             //    ms.AddAsync(doc);
             //}
             //Console.WriteLine("Wait");
-            var currentId = 10;
-            int t;
-            t = Interlocked.Increment(ref currentId);
+            //IndexCore ic = CreateIndex();
+            //ic.Serialize("abc.idx");
+            IndexCore ic2 = IndexCore.Deserialize("abc.idx");
+
             Console.ReadKey();
         }
+
+        static IndexCore CreateIndex()
+        {
+            var file = File.ReadAllText(@"E:\games.json");
+            var t = JArray.Parse(file);
+            List<Document> docs = new List<Document>();
+            foreach (JObject j in t.Cast<JObject>())
+            {
+                if (docs.Count % 1000 == 0)
+                    Console.WriteLine(docs.Count);
+                //Console.WriteLine(j);
+                if (j.HasValues)
+                    docs.Add(j);
+            }
+            IndexCore ic = new IndexCore();
+            ic.AddRange(docs);
+            return ic;
+        }
+
     }
 }

@@ -10,9 +10,9 @@ namespace SearchEngineTools
     public interface IDocumentStorage
     {
         int Add(Document doc);
-        IList<int> AddRange(IEnumerable<Document> docs);
+        int AddRange(IEnumerable<Document> docs);
         Task<int> AddAsync(Document doc);
-        Task<IList<int>> AddRangeAsync(IEnumerable<Document> docs);
+        Task<int> AddRangeAsync(IEnumerable<Document> docs);
         Document Get(int id);
     }
 }

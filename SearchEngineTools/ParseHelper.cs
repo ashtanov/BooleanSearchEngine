@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -16,6 +17,8 @@ namespace SearchEngineTools
         }
         public static List<string> FindAllWords(string text)
         {
+            if(text == null)
+                return new List<string>();
             List<string> s = new List<string>();
             foreach(Match m in wordFinder.Matches(text))
             {

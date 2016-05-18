@@ -6,11 +6,11 @@ namespace SearchEngineTools
     public class Document
     {
         [BsonId]
-        public int Id { get; set; }
-        public int extId { get; set; }
+        public int intId { get; set; }
+        public int id { get; set; }
         public string title { get; set; }
-        public string body { get; set; }
-        public string meta { get; set; }
+        public string description { get; set; }
+        public int pages { get; set; }
         public int rank { get; set; }
         public string link { get; set; }
         public string magnet { get; set; }
@@ -19,11 +19,11 @@ namespace SearchEngineTools
         {
             return new JObject
             {
-                { nameof(Id), d.Id },
-                { nameof(extId), d.extId },
+                { nameof(intId), d.intId },
+                { nameof(id), d.id },
                 { nameof(title), d.title },
-                { nameof(body), d.body },
-                { nameof(meta), d.meta },
+                { nameof(description), d.description },
+                { nameof(pages), d.pages },
                 { nameof(rank), d.rank },
                 { nameof(link), d.link },
                 { nameof(magnet), d.magnet }
@@ -33,14 +33,14 @@ namespace SearchEngineTools
         public static implicit operator Document(JObject d)
         {
             var res = new Document();
-            res.Id = d[nameof(Id)].Value<int>();
-            res.extId = d[nameof(extId)].Value<int>();
-            res.title = d[nameof(title)].Value<string>();
-            res.body = d[nameof(body)].Value<string>();
-            res.meta = d[nameof(meta)].Value<string>();
-            res.rank = d[nameof(rank)].Value<int>();
-            res.link = d[nameof(link)].Value<string>();
-            res.magnet = d[nameof(magnet)].Value<string>();
+            res.intId = -1;
+            res.id = d[nameof(id)].Value<int>();
+            res.title = d[nameof(title)]?.Value<string>();
+            res.description = d[nameof(description)]?.Value<string>();
+            res.pages = d[nameof(pages)].Value<int>();
+            res.rank = -1;
+            res.link = d[nameof(link)]?.Value<string>();
+            res.magnet = d[nameof(magnet)]?.Value<string>();
             return res;
         }
     }
