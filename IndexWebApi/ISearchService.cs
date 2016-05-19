@@ -16,9 +16,9 @@ namespace IndexWebApi
     {
         [WebInvoke(Method = "GET",
                     ResponseFormat = WebMessageFormat.Json,
-                    UriTemplate = "/Find?query={query}")]
+                    UriTemplate = "/Find?query={query}&debug={isDebug}")]
         [OperationContract]
-        IndDocument[] Find(string query);
+        Response Find(string query, string isDebug);
 
         [WebInvoke(Method = "POST",
                     ResponseFormat = WebMessageFormat.Json,

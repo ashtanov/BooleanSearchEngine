@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Set = System.Collections.Generic.SortedSet<int>;
 using PositionDict = System.Collections.Generic.SortedDictionary<int, System.Collections.Generic.SortedSet<int>>;
 using System.Collections.Concurrent;
+using Newtonsoft.Json.Linq;
 
 namespace SearchEngineTools
 {
@@ -21,7 +22,7 @@ namespace SearchEngineTools
         private Dictionary<int, string> intToWord;
         private int wordsCount;
 
-        public double[] weights = { 1, 0.2 };
+        public double[] weights = { 1, 0.3 };
         public double k1 = 2;
 
         public IndexCore() : this(Guid.NewGuid().ToString("N"))
@@ -50,22 +51,56 @@ namespace SearchEngineTools
             foreach (var doc in docs)
             {
                 int mPos = InsertInIndex(doc, 0, (x) => x.title);
-                int y = InsertInIndex(doc, mPos + 200, (x) => x.description);
+                InsertInIndex(doc, 200, (x) => x.description);
             }
         }
 
-        public Document[] SearchQuery(string query)
+        public Response SearchQuery(string query)
         {
-            var words = ParseHelper.FindAllWords(query).Select(x => normalizer.NormalizeWord(x)).ToArray(); // ИСКЛЮЧАТЬ СЛОВА, НЕ СОДЕРЖАЩИЕСЯ В СЛОВАРЕ!!!
-            var res = DistanceSearch(words, 10);
-            if (res.Length == 0)
-                res = SearchFull(words);
-            var toRank = res
-                .Select(x => new { score = BM25F(x, words), doc = x })
-                .OrderByDescending(x => x.score)
-                .Take(100)
+            var words = ParseHelper.FindAllWords(query)
+                .Select(x => normalizer.NormalizeWord(x))
+                .Where(x => index.ContainsKey(x))// исключаем слова, не содержащиеся в словаре
                 .ToArray();
-            return res; //TODO: возвращать объект для пересылки
+            if (words.Length != 0)
+            {
+                var res = words.Length == 1 ? SearchFull(words) : DistanceSearch(words, 10);
+                if (res.Length == 0)
+                    res = SearchFull(words);
+                var ranked = res
+                    .Select(x => new {score = BM25F(x, words), doc = x})
+                    .OrderByDescending(x => x.score)
+                    .Take(100)
+                    .Select((s, i) =>
+                    {
+                        s.doc.rank = i;
+                        return s.doc;
+                    }).ToArray();
+                WordDoc[] wdp = new WordDoc[words.Length];
+                for (int i = 0; i < wdp.Length; ++i)
+                {
+                    wdp[i] = new WordDoc
+                    {
+                        word = words[i],
+                        docs = new DocPos[ranked.Length]
+                    };
+                    for (int k = 0; k < wdp[i].docs.Length; ++k)
+                        wdp[i].docs[k] = new DocPos
+                        {
+                            docId = ranked[k].id,
+                            pos = index[words[i]][ranked[k].intId].ToArray()
+                        };
+                }
+                return new Response
+                {
+                    documents = ranked,
+                    query = wdp
+                };
+            }
+            return new Response
+            {
+                documents = null,
+                query = words.Select(x => new WordDoc {word = x}).ToArray()
+            };
         }
 
         private double BM25F(Document doc, string[] words)
@@ -99,15 +134,14 @@ namespace SearchEngineTools
             IList<int> current = pdList[0];
             for (int i = 1; i < pdList.Count; ++i)
                 current = SmartIntersect(current, pdList[i]);
-            Document[] res = new Document[current.Count];
-            for (int i = 0; i < res.Length; ++i)
-                res[i] = storage.Get(current[i]);
-            return res;
+            return storage.GetRange(current).ToArray();
         }
 
         private Document[] DistanceSearch(string[] queryWords, int distance)
         {
             List<Tuple<string, string>> tmp = new List<Tuple<string, string>>();
+            for (int i = 0; i < queryWords.Length; ++i)
+                queryWords[i] = normalizer.NormalizeWord(queryWords[i]);
             for (int i = 1; i < queryWords.Length; i++)
                 tmp.Add(new Tuple<string, string>(queryWords[i - 1], queryWords[i]));
             List<IList<Coord>> res = new List<IList<Coord>>();
@@ -115,8 +149,8 @@ namespace SearchEngineTools
             {
                 res.Add(
                     DistanceSearch2Docs(
-                        index[normalizer.NormalizeWord(ds.Item1)],
-                        index[normalizer.NormalizeWord(ds.Item2)],
+                        index[ds.Item1],
+                        index[ds.Item2],
                         distance)
                     );
             }
@@ -130,9 +164,9 @@ namespace SearchEngineTools
                     {
                         if (current[j].sPos == res[i][k].fPos)
                             intersect.Add(res[i][k]);
-                        if (current[j + 1].docId == res[i][k].docId)
+                        if (j + 1 < current.Count && current[j + 1].docId == res[i][k].docId)
                             j++;
-                        else if (res[i][k + 1].docId == current[j].docId)
+                        else if (k + 1 < res[i].Count && res[i][k + 1].docId == current[j].docId)
                             k++;
                         else
                         {
@@ -146,7 +180,7 @@ namespace SearchEngineTools
                         k++;
                 current = intersect;
             }
-            return current.Distinct().Select(x => storage.Get(x.docId)).ToArray();
+            return storage.GetRange(current.Select(x => x.docId).ToList()).ToArray();
         }
 
         #region De/Serialize
@@ -155,6 +189,7 @@ namespace SearchEngineTools
             using (var bw = new BinaryWriter(new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write)))
             {
                 bw.Write(indexName);
+                //index
                 bw.Write(index.Count);
                 foreach (var t in index)
                 {
@@ -177,7 +212,15 @@ namespace SearchEngineTools
                             bw.WriteCompressedInt(coord[k] - coord[k - 1]);
                     }
                 }
-                //TODO: сериализовать idf wordToInt intToWord wordscount
+                //idf
+                bw.Write(idf.Count);
+                foreach (var kvp in idf)
+                {
+                    bw.Write(kvp.Key);
+                    bw.Write(kvp.Value);
+                }
+
+                //TODO: сериализовать idf wordToInt intToWord 
             }
         }
 
@@ -187,6 +230,7 @@ namespace SearchEngineTools
             using (var br = new BinaryReader(new FileStream(filePath, FileMode.Open, FileAccess.Read)))
             {
                 ind = new IndexCore(br.ReadString());
+                //index
                 var count = br.ReadInt32();
                 for (var i = 0; i < count; ++i)
                 {
@@ -212,8 +256,19 @@ namespace SearchEngineTools
                     }
                     ind.index.Add(word, tmp);
                 }
+                //idf
+                int idfCount = br.ReadInt32();
+                for (int i = 0; i < idfCount; ++i)
+                {
+                    var key = br.ReadString();
+                    int val = br.ReadInt32();
+                    ind.wordsCount += val;
+                    ind.idf.TryAdd(key, val);
+                }
+
             }
-            //TODO: десериализовать idf wordToInt intToWord
+
+            //TODO: десериализовать wordToInt intToWord
             return ind;
         }
         #endregion

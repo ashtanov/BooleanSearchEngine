@@ -31,8 +31,10 @@ namespace TestEnviroment
             //    ms.AddAsync(doc);
             //}
             //Console.WriteLine("Wait");
-            IndexCore ic = CreateIndex();
-            var yy1 = ic.SearchQuery("отец сыныфв");
+            //IndexCore ic = CreateIndex();
+            //ic.Serialize("indexMoviesMin.idx");
+            IndexCore ic = IndexCore.Deserialize("indexMoviesMin.idx");
+            var yy1 = ic.SearchQuery("Кэрол Ридс");
             //var yy = yy1.Select(x => x.id).Except(yy2.Select(c => c.id));
             //ic.Serialize("abc.idx");
             //IndexCore ic2 = IndexCore.Deserialize("abc.idx");
@@ -42,7 +44,7 @@ namespace TestEnviroment
 
         static IndexCore CreateIndex()
         {
-            var file = File.ReadAllText(@"E:\films2.json");
+            var file = File.ReadAllText(@"E:\games_min.json");
             var t = JArray.Parse(file);
             List<Document> docs = new List<Document>();
             foreach (JObject j in t.Cast<JObject>())

@@ -42,7 +42,7 @@ namespace SearchEngineTools
             };
             try
             {
-                currentId = (int) coll.Aggregate(pipeline).First()[1]; //максимальный id
+                currentId = (int)coll.Aggregate(pipeline).First()[1]; //максимальный id
             }
             catch (Exception ex)
             {
@@ -72,7 +72,7 @@ namespace SearchEngineTools
         {
             try
             {
-                foreach(var t in docs)
+                foreach (var t in docs)
                     t.intId = Interlocked.Increment(ref currentId);
                 coll.InsertMany(docs);
                 return docs.Count();
@@ -90,6 +90,12 @@ namespace SearchEngineTools
         public Document Get(int id)
         {
             return coll.AsQueryable().First(x => x.intId == id);
+        }
+
+        public IList<Document> GetRange(IList<int> ids)
+        {
+            var query = new FilterDefinitionBuilder<Document>().In("_id", ids);
+            return coll.Find(query).ToList();
         }
 
         public async Task<int> AddAsync(Document doc)
@@ -121,7 +127,7 @@ namespace SearchEngineTools
             }
             catch (AggregateException)
             {
-                return -1 ;
+                return -1;
             }
             catch
             {

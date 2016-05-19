@@ -14,5 +14,7 @@ namespace SearchEngineTools
         Task<int> AddAsync(Document doc);
         Task<int> AddRangeAsync(IEnumerable<Document> docs);
         Document Get(int id);
+        IList<Document> GetRange(IList<int> id);
+
     }
 }

@@ -52,6 +52,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -60,16 +61,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DirectoryStorage.cs" />
+    <Compile Include="Storage\DirectoryStorage.cs" />
     <Compile Include="Document.cs" />
     <Compile Include="Extensions.cs" />
-    <Compile Include="IDocumentStorage.cs" />
-    <Compile Include="Index.cs" />
+    <Compile Include="Storage\IDocumentStorage.cs" />
     <Compile Include="IndexCore.cs" />
     <Compile Include="IntCompressor.cs" />
-    <Compile Include="MongoStorage.cs" />
+    <Compile Include="Storage\MongoStorage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Token.cs" />
     <Compile Include="ParseHelper.cs" />
     <Compile Include="WordNormalizer.cs" />
   </ItemGroup>
