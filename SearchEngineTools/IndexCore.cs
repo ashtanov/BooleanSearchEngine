@@ -16,9 +16,13 @@ namespace SearchEngineTools
         private IWordNormalizer normalizer;
         private IDocumentStorage storage;
         private Dictionary<string, PositionDict> index;
-        private ConcurrentDictionary<int, int> idf;
+        private ConcurrentDictionary<string, int> idf;
         private Dictionary<string, int> wordToInt;
         private Dictionary<int, string> intToWord;
+        private int wordsCount;
+
+        public double[] weights = { 1, 0.2 };
+        public double k1 = 2;
 
         public IndexCore() : this(Guid.NewGuid().ToString("N"))
         { }
@@ -29,9 +33,10 @@ namespace SearchEngineTools
             normalizer = new WordCaseNormalizer();
             index = new Dictionary<string, PositionDict>();
             storage = new MongoStorage();
-            idf = new ConcurrentDictionary<int, int>();
+            idf = new ConcurrentDictionary<string, int>();
             wordToInt = new Dictionary<string, int>();
             intToWord = new Dictionary<int, string>();
+            wordsCount = 0;
         }
 
         public void Add(Document d)
@@ -45,11 +50,47 @@ namespace SearchEngineTools
             foreach (var doc in docs)
             {
                 int mPos = InsertInIndex(doc, 0, (x) => x.title);
-                int y = InsertInIndex(doc, mPos + 10, (x) => x.description);
+                int y = InsertInIndex(doc, mPos + 200, (x) => x.description);
             }
         }
 
-        public Document[] SearchFull(string[] queryWords)
+        public Document[] SearchQuery(string query)
+        {
+            var words = ParseHelper.FindAllWords(query).Select(x => normalizer.NormalizeWord(x)).ToArray(); // ИСКЛЮЧАТЬ СЛОВА, НЕ СОДЕРЖАЩИЕСЯ В СЛОВАРЕ!!!
+            var res = DistanceSearch(words, 10);
+            if (res.Length == 0)
+                res = SearchFull(words);
+            var toRank = res
+                .Select(x => new { score = BM25F(x, words), doc = x })
+                .OrderByDescending(x => x.score)
+                .Take(100)
+                .ToArray();
+            return res; //TODO: возвращать объект для пересылки
+        }
+
+        private double BM25F(Document doc, string[] words)
+        {
+            double sum = 0;
+            foreach (var w in words)
+            {
+                double tfTitl = 0;
+                double tfDesc = 0;
+                foreach (var coord in index[w][doc.intId])
+                    if (coord < 200)
+                        tfTitl += 1;
+                    else
+                        tfDesc += 1;
+                tfTitl = tfTitl / ParseHelper.FindAllWords(doc.title).Count;
+                tfDesc = doc.len != 0 ? (tfDesc / doc.len) : 0;
+                double tf = tfTitl * weights[0] + tfDesc * weights[1];
+                sum += tf / (k1 + tf) * Math.Log((wordsCount + 0.0) / idf[w]);
+            }
+            return sum;
+        }
+
+
+
+        private Document[] SearchFull(string[] queryWords)
         {
             List<List<int>> pdList = new List<List<int>>();
             foreach (var word in queryWords)
@@ -57,14 +98,14 @@ namespace SearchEngineTools
             pdList = pdList.OrderBy(x => x.Count).ToList();
             IList<int> current = pdList[0];
             for (int i = 1; i < pdList.Count; ++i)
-                current = SmartIntersectSimple(current, pdList[i]);
+                current = SmartIntersect(current, pdList[i]);
             Document[] res = new Document[current.Count];
             for (int i = 0; i < res.Length; ++i)
                 res[i] = storage.Get(current[i]);
             return res;
         }
 
-        public Document[] DistanceSearch(string[] queryWords, int distance)
+        private Document[] DistanceSearch(string[] queryWords, int distance)
         {
             List<Tuple<string, string>> tmp = new List<Tuple<string, string>>();
             for (int i = 1; i < queryWords.Length; i++)
@@ -94,7 +135,7 @@ namespace SearchEngineTools
                         else if (res[i][k + 1].docId == current[j].docId)
                             k++;
                         else
-                        { 
+                        {
                             k++;
                             j++;
                         }
@@ -136,7 +177,7 @@ namespace SearchEngineTools
                             bw.WriteCompressedInt(coord[k] - coord[k - 1]);
                     }
                 }
-                //TODO: сериализовать idf wordToInt intToWord
+                //TODO: сериализовать idf wordToInt intToWord wordscount
             }
         }
 
@@ -177,7 +218,7 @@ namespace SearchEngineTools
         }
         #endregion
         #region Helpers
-        private IList<int> SmartIntersectSimple(IList<int> first, IList<int> second)
+        private IList<int> SmartIntersect(IList<int> first, IList<int> second)
         {
             int jumpa = (int)Math.Sqrt(first.Count);
             int jumpb = (int)Math.Sqrt(second.Count);
@@ -226,11 +267,11 @@ namespace SearchEngineTools
             {
                 string nword = normalizer.NormalizeWord(word);
                 PositionDict tmp;
-
+                wordsCount++;
                 if (wordToInt.ContainsKey(nword) && index.TryGetValue(nword, out tmp))
                 {
                     int currentid = wordToInt[nword];
-                    idf[currentid] += 1;
+                    idf[nword] += 1;
                     if (tmp.ContainsKey(doc.intId))
                         tmp[doc.intId].Add(wordPos);
                     else
@@ -242,7 +283,7 @@ namespace SearchEngineTools
                     wordToInt.Add(nword, currentid);
                     intToWord.Add(currentid, nword);
 
-                    idf.AddOrUpdate(currentid, 1, (x, y) => y + 1);
+                    idf.AddOrUpdate(nword, 1, (x, y) => y + 1);
                     index.Add(nword,
                         new PositionDict
                         {

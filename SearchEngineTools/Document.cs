@@ -17,6 +17,8 @@ namespace SearchEngineTools
         public string qual { get; set; }
         public string lang { get; set; }
         public string keygen { get; set; }
+        [BsonIgnore]
+        public int rank { get; set; }
 
         public static implicit operator JObject(Document d)
         {
@@ -40,13 +42,14 @@ namespace SearchEngineTools
         {
             var res = new Document();
             res.intId = -1;
+            res.rank = -1;
             res.id = d[nameof(id)].Value<int>();
             res.title = d[nameof(title)]?.Value<string>();
             res.description = d[nameof(description)]?.Value<string>();
             res.pages = d[nameof(pages)].Value<int>();
             res.link = d[nameof(link)]?.Value<string>();
             res.qual = d[nameof(qual)]?.Value<string>();
-            res.len = d[nameof(len)].Value<int>();
+            res.len = d[nameof(len)] != null ? d[nameof(len)].Value<int>() : 0;
             res.lang = d[nameof(lang)]?.Value<string>();
             res.keygen = d[nameof(keygen)]?.Value<string>();
             res.magnet = d[nameof(magnet)]?.Value<string>();
