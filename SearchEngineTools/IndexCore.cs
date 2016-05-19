@@ -4,8 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Set = System.Collections.Generic.SortedSet<int>;
-using PositionDict = System.Collections.Generic.SortedDictionary<int, System.Collections.Generic.SortedSet<int>>;
+using Set = SearchEngineTools.CompressedSortedList;
+using PositionDict = System.Collections.Generic.SortedDictionary<int, SearchEngineTools.CompressedSortedList>;
 using System.Collections.Concurrent;
 using Newtonsoft.Json.Linq;
 
@@ -110,12 +110,12 @@ namespace SearchEngineTools
             {
                 double tfTitl = 0;
                 double tfDesc = 0;
-                foreach (var coord in index[w][doc.intId])
+                foreach (var coord in index[w][doc.intId].ToList())
                     if (coord < 200)
                         tfTitl += 1;
                     else
                         tfDesc += 1;
-                tfTitl = tfTitl / ParseHelper.FindAllWords(doc.title).Count;
+                tfTitl = tfTitl / doc.tlen;
                 tfDesc = doc.len != 0 ? (tfDesc / doc.len) : 0;
                 double tf = tfTitl * weights[0] + tfDesc * weights[1];
                 sum += tf / (k1 + tf) * Math.Log((wordsCount + 0.0) / idf[w]);
@@ -290,25 +290,15 @@ namespace SearchEngineTools
                 else if (first[i] < second[k])
                 {
                     if (i % jumpb == 0)
-                    {
                         while (i + jumpb < first.Count && first[i + jumpb] < second[k])
-                        {
                             i += jumpb;
-                        }
-                        i++;
-                    }
-                    else
                         i++;
                 }
                 else
                 {
                     if (k % jumpa == 0)
-                    {
                         while (k + jumpa < second.Count && second[k + jumpa] < first[i])
                             k += jumpa;
-                        k++;
-                    }
-                    else
                         k++;
                 }
             }
@@ -330,7 +320,7 @@ namespace SearchEngineTools
                     if (tmp.ContainsKey(doc.intId))
                         tmp[doc.intId].Add(wordPos);
                     else
-                        tmp.Add(doc.intId, new Set { wordPos });
+                        tmp.Add(doc.intId, new Set (new []{ wordPos }));
                 }
                 else
                 {
@@ -342,7 +332,7 @@ namespace SearchEngineTools
                     index.Add(nword,
                         new PositionDict
                         {
-                            { doc.intId, new Set {wordPos} }
+                            { doc.intId, new Set(new []{ wordPos })}
                         });
                 }
                 wordPos++;

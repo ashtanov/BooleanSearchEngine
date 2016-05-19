@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 
 namespace SearchEngineTools
@@ -9,6 +10,8 @@ namespace SearchEngineTools
         public static byte[] ToCompressedInt(this int val)
         {
             int max = (int)Math.Ceiling(LastBit(val) / 7.0);
+            if (max == 0)
+                return new byte[] { 128 };
             byte[] result = new byte[max];
             BitArray ba = new BitArray(new[] { val });
             for (int i = 0, k = -1; k < max; ++i)
@@ -71,8 +74,79 @@ namespace SearchEngineTools
             }
             return 32;
         }
+    }
 
-        
+    public class CompressedSortedList
+    {
+        byte[] arr;
 
+        public CompressedSortedList(IList<int> init)
+        {
+            FromList(init);
+        }
+
+        public CompressedSortedList()
+        {
+
+        }
+        public void Add(int val)
+        {
+            var tmp = ToList();
+            tmp.AddSorted(val);
+            FromList(tmp);
+        }
+
+        public void FromList(IList<int> lst)
+        {
+            List<byte[]> tmp = new List<byte[]>();
+            int bc = 0;
+            for (int i = 0; i < lst.Count; ++i)
+            {
+                tmp.Add(lst[i].ToCompressedInt());
+                bc += tmp[i].Length;
+            }
+            arr = new byte[bc];
+            for (int byteNum = 0, intNum = 0, tByteNum = 0; byteNum < bc; ++byteNum)
+            {
+                arr[byteNum] = tmp[intNum][tByteNum];
+                if (tByteNum + 1 == tmp[intNum].Length)
+                {
+                    intNum++;
+                    tByteNum = 0;
+                }
+                else
+                    tByteNum++;
+            }
+        }
+
+        public int Count
+        {
+            get { return ToList().Count; }
+        }
+
+        public List<int> ToList()
+        {
+            if (arr == null || arr.Length == 0)
+                return new List<int>();
+            List<int> res = new List<int>();
+            byte[] buffer = new byte[10];
+            for (int i = 0, k = 0; i < arr.Length; ++i)
+            {
+                buffer[k] = arr[i];
+                if (arr[i] < 128)
+                    k++;
+                else
+                {
+                    k = 0;
+                    res.Add(buffer.FromCompressedInt());
+                }
+            }
+            return res;
+        }
+
+        public int[] ToArray()
+        {
+            return ToList().ToArray();
+        }
     }
 }

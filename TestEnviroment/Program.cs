@@ -15,29 +15,19 @@ namespace TestEnviroment
     {
         static void Main(string[] args)
         {
-            //MongoStorage ms = new MongoStorage();
-            //for (int i = 0; i < 100000; ++i)
+            //CompressedSortedList csl = new CompressedSortedList();
+            //Random r = new Random();
+            //for (int i = 0; i < 1000; ++i)
             //{
-            //    Document doc = new Document
-            //    {
-            //        extId = i,
-            //        description = "asldk",
-            //        link = "asd",
-            //        meta = "asdkl",
-            //        magnet = " kjd",
-            //        rank = 1,
-            //        title = "d;l"
-            //    };
-            //    ms.AddAsync(doc);
+            //    csl.Add(r.Next(0, 1000));
             //}
-            //Console.WriteLine("Wait");
-            //IndexCore ic = CreateIndex();
-            //ic.Serialize("indexFilms.idx");
-            IndexCore ic = IndexCore.Deserialize("indexFilms.idx");
-            var yy1 = ic.SearchQuery("джеймс бонд");
+            //var ll = csl.ToList();
+            var ic = CreateIndex();
+            ic.Serialize("indexFull.idx");
+            //IndexCore ic = IndexCore.Deserialize("indexFilms.idx");
+            //var yy1 = ic.SearchQuery("джеймс бонд");
             //var yy = yy1.Select(x => x.id).Except(yy2.Select(c => c.id));
             //ic.Serialize("abc.idx");
-            //IndexCore ic2 = IndexCore.Deserialize("abc.idx");
 
             Console.ReadKey();
         }
@@ -47,7 +37,7 @@ namespace TestEnviroment
             IndexCore ic = new IndexCore();
             for (int i = 1; i <= 6; ++i)
             {
-                var file = File.ReadAllText(@"E:\films" + i + ".json");
+                var file = File.ReadAllText(@"E:\IndexDocs\films" + i + ".json");
                 var t = JArray.Parse(file);
                 List<Document> docs = new List<Document>();
                 foreach (JObject j in t.Cast<JObject>())

@@ -16,14 +16,15 @@ namespace IndexWebApi
     public class SearchService : ISearchService
     {
         private static IndexCore index;
-        //private static Task start;
+        private static Task start;
 
         static SearchService()
         {
-            //start = new Task(() =>
-            //{
-                index = IndexCore.Deserialize(@"E:\indexFilms.idx");
-            //});
+            start = new Task(() =>
+            {
+                index = IndexCore.Deserialize(@"E:\indexFull.idx");
+            });
+            start.Start();
         }
         public int AddDocuments(string value)
         {
@@ -63,6 +64,20 @@ namespace IndexWebApi
                     errorMessage = ex.ToString()
                 };
             }
+        }
+
+        public Status Status()
+        {
+            if (!start.IsCompleted)
+                return new Status
+                {
+                    status = "Loading..."
+                };
+            else
+                return new Status
+                {
+                    status = "Ready"
+                };
         }
     }
 }
