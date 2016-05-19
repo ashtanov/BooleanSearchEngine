@@ -7,6 +7,7 @@ using System.Runtime.Serialization;
 using System.ServiceModel;
 using System.ServiceModel.Web;
 using System.Text;
+using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SearchEngineTools;
 
@@ -15,10 +16,14 @@ namespace IndexWebApi
     public class SearchService : ISearchService
     {
         private static IndexCore index;
+        //private static Task start;
 
         static SearchService()
         {
-            index = IndexCore.Deserialize(@"E:\indexMoviesMin.idx");
+            //start = new Task(() =>
+            //{
+                index = IndexCore.Deserialize(@"E:\indexFilms.idx");
+            //});
         }
         public int AddDocuments(string value)
         {

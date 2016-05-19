@@ -32,9 +32,9 @@ namespace TestEnviroment
             //}
             //Console.WriteLine("Wait");
             //IndexCore ic = CreateIndex();
-            //ic.Serialize("indexMoviesMin.idx");
-            IndexCore ic = IndexCore.Deserialize("indexMoviesMin.idx");
-            var yy1 = ic.SearchQuery("Кэрол Ридс");
+            //ic.Serialize("indexFilms.idx");
+            IndexCore ic = IndexCore.Deserialize("indexFilms.idx");
+            var yy1 = ic.SearchQuery("джеймс бонд");
             //var yy = yy1.Select(x => x.id).Except(yy2.Select(c => c.id));
             //ic.Serialize("abc.idx");
             //IndexCore ic2 = IndexCore.Deserialize("abc.idx");
@@ -44,19 +44,22 @@ namespace TestEnviroment
 
         static IndexCore CreateIndex()
         {
-            var file = File.ReadAllText(@"E:\games_min.json");
-            var t = JArray.Parse(file);
-            List<Document> docs = new List<Document>();
-            foreach (JObject j in t.Cast<JObject>())
-            {
-                if (docs.Count % 1000 == 0)
-                    Console.WriteLine(docs.Count);
-                //Console.WriteLine(j);
-                if (j.HasValues)
-                    docs.Add(j);
-            }
             IndexCore ic = new IndexCore();
-            ic.AddRange(docs);
+            for (int i = 1; i <= 6; ++i)
+            {
+                var file = File.ReadAllText(@"E:\films" + i + ".json");
+                var t = JArray.Parse(file);
+                List<Document> docs = new List<Document>();
+                foreach (JObject j in t.Cast<JObject>())
+                {
+                    if (docs.Count % 1000 == 0)
+                        Console.WriteLine(docs.Count);
+                    if (j.HasValues)
+                        docs.Add(j);
+                }
+                ic.AddRange(docs);
+                Console.WriteLine("Stage" + i);
+            }
             return ic;
         }
 
