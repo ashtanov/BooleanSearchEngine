@@ -11,32 +11,48 @@ namespace SearchEngineTools
     {
         [BsonId]
         public int intId { get; set; } //внутренний id - ключ документа в монге
-        [DataMember]
+
+        [DataMember(Order = 0)]
         public int id { get; set; } // id на рутрекере
-        [DataMember]
+
+        [DataMember(Order = 1)]
         public string title { get; set; }
-        [DataMember]
-        public string description { get; set; }
-        [DataMember]
-        public int pages { get; set; }
-        [DataMember]
+
+        [DataMember(Order = 2)]
         public string link { get; set; }
-        [DataMember]
+
+        [DataMember(Order = 3)]
         public string magnet { get; set; }
-        [DataMember]
-        public int len { get; set; }
-        [DataMember]
-        public int tlen { get; set; }
-        [DataMember]
+
+        [DataMember(Order = 4)]
+        public string description { get; set; }
+
+        [DataMember(Order = 5)]
         public string qual { get; set; }
-        [DataMember]
+
+        [DataMember(Order = 6)]
         public string lang { get; set; }
-        [DataMember]
+
+        [DataMember(Order = 7)]
         public string keygen { get; set; }
-        [DataMember]
+
+        [DataMember(Order = 8)]
         [BsonIgnore]
-        [BsonDefaultValue(-1)]
-        public int rank { get; set; }
+        public double rank { get; set; }
+
+        [DataMember(Order = 9)]
+        [BsonIgnore]
+        public double cos { get; set; }
+
+        [DataMember(Order = 10)]
+        public int pages { get; set; }
+
+        [DataMember(Order = 11)]
+        public int len { get; set; }
+
+        [DataMember(Order = 12)]
+        public int tlen { get; set; }
+        
 
         public override string ToString()
         {
@@ -68,6 +84,7 @@ namespace SearchEngineTools
             {
                 intId = -1,
                 rank = -1,
+                cos = -1,
                 id = d[nameof(id)].Value<int>(),
                 title = d[nameof(title)]?.Value<string>(),
                 description = d[nameof(description)]?.Value<string>(),

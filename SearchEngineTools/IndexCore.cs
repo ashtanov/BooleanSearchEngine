@@ -50,7 +50,7 @@ namespace SearchEngineTools
             storage.AddRange(docs);
             foreach (var doc in docs)
             {
-                int mPos = InsertInIndex(doc, 0, (x) => x.title);
+                InsertInIndex(doc, 0, (x) => x.title);
                 InsertInIndex(doc, 200, (x) => x.description);
             }
         }
@@ -70,9 +70,9 @@ namespace SearchEngineTools
                     .Select(x => new {score = BM25F(x, words), doc = x})
                     .OrderByDescending(x => x.score)
                     .Take(100)
-                    .Select((s, i) =>
+                    .Select(s =>
                     {
-                        s.doc.rank = i;
+                        s.doc.rank = s.score;
                         return s.doc;
                     }).ToArray();
                 WordDoc[] wdp = new WordDoc[words.Length];
@@ -164,6 +164,7 @@ namespace SearchEngineTools
                     {
                         if (current[j].sPos == res[i][k].fPos)
                             intersect.Add(res[i][k]);
+
                         if (j + 1 < current.Count && current[j + 1].docId == res[i][k].docId)
                             j++;
                         else if (k + 1 < res[i].Count && res[i][k + 1].docId == current[j].docId)
@@ -220,7 +221,7 @@ namespace SearchEngineTools
                     bw.Write(kvp.Value);
                 }
 
-                //TODO: сериализовать idf wordToInt intToWord 
+                //TODO: сериализовать wordToInt intToWord 
             }
         }
 

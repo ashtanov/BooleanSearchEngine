@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.ExceptionServices;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Net;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SearchEngineTools;
 
@@ -15,42 +14,62 @@ namespace TestEnviroment
     {
         static void Main(string[] args)
         {
-            //CompressedSortedList csl = new CompressedSortedList();
-            //Random r = new Random();
-            //for (int i = 0; i < 1000; ++i)
-            //{
-            //    csl.Add(r.Next(0, 1000));
-            //}
-            //var ll = csl.ToList();
-            var ic = CreateIndex();
-            ic.Serialize("indexFull.idx");
-            //IndexCore ic = IndexCore.Deserialize("indexFilms.idx");
-            //var yy1 = ic.SearchQuery("джеймс бонд");
-            //var yy = yy1.Select(x => x.id).Except(yy2.Select(c => c.id));
-            //ic.Serialize("abc.idx");
+            //TestAverageTime();
+
+            CreateIndex(
+                fromDirectiory: @"E:\SourceFiles",
+                saveToFile: @"E:\indexFull.idx"
+            );
 
             Console.ReadKey();
         }
 
-        static IndexCore CreateIndex()
+        private static void TestAverageTime()
         {
-            IndexCore ic = new IndexCore();
-            for (int i = 1; i <= 6; ++i)
+            TimeSpan total = new TimeSpan();
+            for (int i = 0; i < 1000; ++i)
             {
-                var file = File.ReadAllText(@"E:\IndexDocs\films" + i + ".json");
-                var t = JArray.Parse(file);
-                List<Document> docs = new List<Document>();
-                foreach (JObject j in t.Cast<JObject>())
-                {
-                    if (docs.Count % 1000 == 0)
-                        Console.WriteLine(docs.Count);
-                    if (j.HasValues)
-                        docs.Add(j);
-                }
-                ic.AddRange(docs);
-                Console.WriteLine("Stage" + i);
+                HttpWebRequest wr =
+                    (HttpWebRequest)
+                        HttpWebRequest.Create(
+                            @"http://iwa.local/SearchService.svc/find?query=Люди%20Икс%20первый%20класс&debug=true");
+                dynamic yy = JObject.Load(new JsonTextReader(new StreamReader(wr.GetResponse().GetResponseStream())));
+                string elapsed = (string) yy.elapsedTime;
+                TimeSpan ts = TimeSpan.FromSeconds(double.Parse(elapsed.Substring(2, elapsed.Length - 3).Replace('.', ',')));
+                total += ts;
+                Console.WriteLine(ts);
             }
-            return ic;
+            total = TimeSpan.FromSeconds(total.TotalSeconds/1000);
+            Console.WriteLine(total);
+        }
+
+        static void CreateIndex(string fromDirectiory, string saveToFile)
+        {
+            Console.WriteLine("Создать индекс?");
+            var line =Console.ReadLine();
+            if (line == "yes" || line == "y")
+            {
+                IndexCore ic = new IndexCore();
+                Stopwatch sw = new Stopwatch();
+                TimeSpan total = new TimeSpan();
+                foreach (var file in Directory.GetFiles(fromDirectiory).Reverse())
+                {
+                    sw.Restart();
+                    Console.WriteLine("Load: {0}", Path.GetFileName(file));
+                    var t = JArray.Load(new JsonTextReader(new StreamReader(file)));
+                    List<Document> docs = new List<Document>();
+                    foreach (JObject j in t.Cast<JObject>())
+                        if (j.HasValues)
+                            docs.Add(j);
+                    ic.AddRange(docs);
+                    total += sw.Elapsed;
+                    Console.WriteLine("Complete: {0}, elapsed: {1}", Path.GetFileName(file), sw.Elapsed);
+                }
+                Console.WriteLine("Total: {0}", total);
+                ic.Serialize(saveToFile);
+            }
+            Console.WriteLine("Нажмите любую клавишу для выхода");
+            Console.ReadKey();
         }
 
     }

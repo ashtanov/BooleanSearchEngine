@@ -17,9 +17,12 @@ namespace IndexWebApi
     {
         private static IndexCore index;
         private static Task start;
+        private static Stopwatch startTime;
 
         static SearchService()
         {
+            startTime = new Stopwatch();
+            startTime.Start();
             start = new Task(() =>
             {
                 index = IndexCore.Deserialize(@"E:\indexFull.idx");
@@ -68,16 +71,18 @@ namespace IndexWebApi
 
         public Status Status()
         {
-            if (!start.IsCompleted)
-                return new Status
-                {
-                    status = "Loading..."
-                };
+            string stat;
+            if (start.IsCompleted)
+                stat = "Ready";
+            else if (start.IsFaulted)
+                stat = "Failed:\n" + start.Exception;
             else
-                return new Status
-                {
-                    status = "Ready"
-                };
+                stat = "Loading...";
+            return new Status
+            {
+                status = stat,
+                runningTime = startTime.Elapsed.ToString()
+            };
         }
     }
 }

@@ -39,5 +39,7 @@ namespace IndexWebApi
     {
         [DataMember]
         public string status { get; set; }
+        [DataMember]
+        public string runningTime { get; set; }
     }
 }
