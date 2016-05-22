@@ -10,7 +10,7 @@ namespace SearchEngineTools
 {
     public static class ParseHelper
     {
-        static Regex wordFinder = new Regex(@"[^\s«_,\.\(\)\[\]\{\}\?\!'&\|""<>#\*=/;:-]+", RegexOptions.Compiled);
+        static Regex wordFinder = new Regex(@"\w+[\'-]?\w+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         static Regex distMark = new Regex(@"[\\/]\d+", RegexOptions.Compiled);
         public static List<string> FindAllWords(string text)
         {

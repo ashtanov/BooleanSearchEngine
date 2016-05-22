@@ -43,12 +43,15 @@ namespace IndexWebApi
             }
         }
 
-        public Response Find(string query, string debug)
+        public Response Find(string query, string debug, string dist)
         {
             try
             {
+                int distInt;
+                if (!int.TryParse(dist, out distInt))
+                    distInt = 10;
                 var timer = Stopwatch.StartNew();
-                var res = index.SearchQuery(query);
+                var res = index.SearchQuery(query, distInt);
                 res.errorCode = 0;
                 var elapsed = timer.Elapsed;
                 bool d;

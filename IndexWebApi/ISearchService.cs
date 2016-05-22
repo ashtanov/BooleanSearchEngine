@@ -16,9 +16,9 @@ namespace IndexWebApi
     {
         [WebInvoke(Method = "GET",
                     ResponseFormat = WebMessageFormat.Json,
-                    UriTemplate = "/Find?query={query}&debug={isDebug}")]
+                    UriTemplate = "/Find?query={query}&debug={isDebug}&dist={dist}")]
         [OperationContract]
-        Response Find(string query, string isDebug); //http://192.168.199.10/IWA/SearchService.svc/Find?query=%D0%B4%D0%B6%D0%B5%D0%B9%D0%BC%D1%81%20%D0%B1%D0%BE%D0%BD%D0%B4&debug=true
+        Response Find(string query, string isDebug, string dist); //http://192.168.199.10/IWA/SearchService.svc/Find?query=%D0%B4%D0%B6%D0%B5%D0%B9%D0%BC%D1%81%20%D0%B1%D0%BE%D0%BD%D0%B4&debug=true
 
         [WebInvoke(Method = "GET",
                     ResponseFormat = WebMessageFormat.Json,

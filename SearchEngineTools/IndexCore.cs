@@ -55,7 +55,7 @@ namespace SearchEngineTools
             }
         }
 
-        public Response SearchQuery(string query)
+        public Response SearchQuery(string query, int distInt)
         {
             var words = ParseHelper.FindAllWords(query)
                 .Select(x => normalizer.NormalizeWord(x))
@@ -63,9 +63,16 @@ namespace SearchEngineTools
                 .ToArray();
             if (words.Length != 0)
             {
-                var res = words.Length == 1 ? SearchFull(words) : DistanceSearch(words, 10);
-                if (res.Length == 0)
+                Document[] res;
+                if(distInt < 1 || words.Length == 1)
                     res = SearchFull(words);
+                else
+                {
+                    res = DistanceSearch(words, distInt);
+                    if (res.Length == 0)
+                        res = SearchFull(words);
+                }
+                
                 var ranked = res
                     .Select(x =>
                     {

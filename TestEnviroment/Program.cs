@@ -7,6 +7,7 @@ using System.Net;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SearchEngineTools;
+using System.Text.RegularExpressions;
 
 namespace TestEnviroment
 {
@@ -14,6 +15,11 @@ namespace TestEnviroment
     {
         static void Main(string[] args)
         {
+
+
+            //Regex r = new Regex(@"\w+[\'-]?\w+");
+            //var uu = r.Matches("Регулярные выражения - это шаблоны используемые для сопоставления последовательностей символов в строках. В JavaScript, регулярные выражения тоже объекты. Эти шаблоны используются в методах exec и test объекта RegExp, а также match, replace, search, и split объекта String. Данная глава описывает регулярные выражения в JavaScript. lskaldka'dkd пиздык-призык, 'ldldl'");
+
             //TestAverageTime();
 
             CreateIndex(
