@@ -17,7 +17,7 @@ namespace SearchEngineTools
         private IWordNormalizer normalizer;
         private IDocumentStorage storage;
         private Dictionary<string, PositionDict> index;
-        private ConcurrentDictionary<string, int> idf;
+        private ConcurrentDictionary<string, int> wordCount;
         private Dictionary<string, int> wordToInt;
         private Dictionary<int, string> intToWord;
         private int wordsCount;
@@ -34,7 +34,7 @@ namespace SearchEngineTools
             normalizer = new WordCaseNormalizer();
             index = new Dictionary<string, PositionDict>();
             storage = new MongoStorage();
-            idf = new ConcurrentDictionary<string, int>();
+            wordCount = new ConcurrentDictionary<string, int>();
             wordToInt = new Dictionary<string, int>();
             intToWord = new Dictionary<int, string>();
             wordsCount = 0;
@@ -67,13 +67,15 @@ namespace SearchEngineTools
                 if (res.Length == 0)
                     res = SearchFull(words);
                 var ranked = res
-                    .Select(x => new {score = BM25F(x, words), doc = x})
-                    .OrderByDescending(x => x.score)
-                    .Take(100)
-                    .Select(s =>
+                    .Select(x =>
                     {
-                        s.doc.rank = s.score;
-                        return s.doc;
+                        x.rank = BM25F(x, words);
+                        return x;
+                    }).OrderByDescending(x => x.rank)
+                    .Take(100).Select(r =>
+                    {
+                        r.cos = Cos(r, words);
+                        return r;
                     }).ToArray();
                 WordDoc[] wdp = new WordDoc[words.Length];
                 for (int i = 0; i < wdp.Length; ++i)
@@ -99,7 +101,8 @@ namespace SearchEngineTools
             return new Response
             {
                 documents = null,
-                query = words.Select(x => new WordDoc {word = x}).ToArray()
+                query = words.Select(x => new WordDoc { word = x }).ToArray(),
+                errorCode = 1
             };
         }
 
@@ -118,12 +121,47 @@ namespace SearchEngineTools
                 tfTitl = tfTitl / doc.tlen;
                 tfDesc = doc.len != 0 ? (tfDesc / doc.len) : 0;
                 double tf = tfTitl * weights[0] + tfDesc * weights[1];
-                sum += tf / (k1 + tf) * Math.Log((wordsCount + 0.0) / idf[w]);
+                sum += tf / (k1 + tf) * CalcIdf(w);
             }
             return sum;
         }
 
+        private double CalcIdf(string w)
+        {
+            return Math.Log((wordsCount + 0.0) / wordCount[w]);
+        }
 
+        /// <summary>
+        /// Косинусная мера похожести запроса и документа
+        /// </summary>
+        /// <param name="doc"></param>
+        /// <param name="queryWords">должно быть нормализованным!</param>
+        /// <returns></returns>
+        private double Cos(Document doc, string[] queryWords)
+        {
+            double AB = 0, A2 = 0, B2 = 0;
+            Dictionary<string, double> tfIdfDoc = new Dictionary<string, double>();
+            Dictionary<string, double> tfIdfQuery = new Dictionary<string, double>();
+            var docWords = ParseHelper.FindAllWords(doc.description + " " + doc.title);
+            foreach (var w in docWords
+                .Select(x => normalizer.NormalizeWord(x))
+                .Distinct())
+                tfIdfDoc.Add(w, (index[w][doc.intId].Count / (docWords.Count + 0.0)) * CalcIdf(w));
+
+            foreach (var w in queryWords.GroupBy(x => x))
+                tfIdfQuery.Add(w.Key, w.Count() / (queryWords.Length + 0.0) * CalcIdf(w.Key));
+
+            foreach (var w in tfIdfQuery)
+                if (tfIdfDoc.ContainsKey(w.Key))
+                    AB += tfIdfDoc[w.Key] * w.Value;
+
+            AB = Math.Sqrt(AB);
+            A2 = Math.Sqrt(tfIdfDoc.Sum(x => x.Value * x.Value));
+            B2 = Math.Sqrt(tfIdfQuery.Sum(x => x.Value * x.Value));
+
+            return AB / (A2 * B2);
+
+        }
 
         private Document[] SearchFull(string[] queryWords)
         {
@@ -214,8 +252,8 @@ namespace SearchEngineTools
                     }
                 }
                 //idf
-                bw.Write(idf.Count);
-                foreach (var kvp in idf)
+                bw.Write(wordCount.Count);
+                foreach (var kvp in wordCount)
                 {
                     bw.Write(kvp.Key);
                     bw.Write(kvp.Value);
@@ -264,7 +302,7 @@ namespace SearchEngineTools
                     var key = br.ReadString();
                     int val = br.ReadInt32();
                     ind.wordsCount += val;
-                    ind.idf.TryAdd(key, val);
+                    ind.wordCount.TryAdd(key, val);
                 }
 
             }
@@ -293,14 +331,14 @@ namespace SearchEngineTools
                     if (i % jumpb == 0)
                         while (i + jumpb < first.Count && first[i + jumpb] < second[k])
                             i += jumpb;
-                        i++;
+                    i++;
                 }
                 else
                 {
                     if (k % jumpa == 0)
                         while (k + jumpa < second.Count && second[k + jumpa] < first[i])
                             k += jumpa;
-                        k++;
+                    k++;
                 }
             }
             return result;
@@ -317,11 +355,11 @@ namespace SearchEngineTools
                 if (wordToInt.ContainsKey(nword) && index.TryGetValue(nword, out tmp))
                 {
                     int currentid = wordToInt[nword];
-                    idf[nword] += 1;
+                    wordCount[nword] += 1;
                     if (tmp.ContainsKey(doc.intId))
                         tmp[doc.intId].Add(wordPos);
                     else
-                        tmp.Add(doc.intId, new Set (new []{ wordPos }));
+                        tmp.Add(doc.intId, new Set(new[] { wordPos }));
                 }
                 else
                 {
@@ -329,7 +367,7 @@ namespace SearchEngineTools
                     wordToInt.Add(nword, currentid);
                     intToWord.Add(currentid, nword);
 
-                    idf.AddOrUpdate(nword, 1, (x, y) => y + 1);
+                    wordCount.AddOrUpdate(nword, 1, (x, y) => y + 1);
                     index.Add(nword,
                         new PositionDict
                         {

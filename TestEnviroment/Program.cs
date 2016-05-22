@@ -18,9 +18,10 @@ namespace TestEnviroment
 
             CreateIndex(
                 fromDirectiory: @"E:\SourceFiles",
-                saveToFile: @"E:\indexFull.idx"
+                saveToFile: @"E:\indexShort.idx"
             );
 
+            Console.WriteLine("Нажмите любую клавишу для выхода");
             Console.ReadKey();
         }
 
@@ -34,19 +35,19 @@ namespace TestEnviroment
                         HttpWebRequest.Create(
                             @"http://iwa.local/SearchService.svc/find?query=Люди%20Икс%20первый%20класс&debug=true");
                 dynamic yy = JObject.Load(new JsonTextReader(new StreamReader(wr.GetResponse().GetResponseStream())));
-                string elapsed = (string) yy.elapsedTime;
+                string elapsed = (string)yy.elapsedTime;
                 TimeSpan ts = TimeSpan.FromSeconds(double.Parse(elapsed.Substring(2, elapsed.Length - 3).Replace('.', ',')));
                 total += ts;
                 Console.WriteLine(ts);
             }
-            total = TimeSpan.FromSeconds(total.TotalSeconds/1000);
+            total = TimeSpan.FromSeconds(total.TotalSeconds / 1000);
             Console.WriteLine(total);
         }
 
         static void CreateIndex(string fromDirectiory, string saveToFile)
         {
             Console.WriteLine("Создать индекс?");
-            var line =Console.ReadLine();
+            var line = Console.ReadLine();
             if (line == "yes" || line == "y")
             {
                 IndexCore ic = new IndexCore();
@@ -67,9 +68,8 @@ namespace TestEnviroment
                 }
                 Console.WriteLine("Total: {0}", total);
                 ic.Serialize(saveToFile);
+                Console.WriteLine("Serializatin complete: {0}", saveToFile);
             }
-            Console.WriteLine("Нажмите любую клавишу для выхода");
-            Console.ReadKey();
         }
 
     }

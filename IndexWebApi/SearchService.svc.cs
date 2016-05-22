@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SearchEngineTools;
+using System.Configuration;
 
 namespace IndexWebApi
 {
@@ -25,7 +26,7 @@ namespace IndexWebApi
             startTime.Start();
             start = new Task(() =>
             {
-                index = IndexCore.Deserialize(@"E:\indexFull.idx");
+                index = IndexCore.Deserialize(ConfigurationManager.AppSettings["indexSource"]);
             });
             start.Start();
         }

@@ -52,7 +52,9 @@ namespace SearchEngineTools
 
         [DataMember(Order = 12)]
         public int tlen { get; set; }
-        
+
+        [DataMember(Order = 13)]
+        public string category { get; set; }      
 
         public override string ToString()
         {
@@ -74,6 +76,7 @@ namespace SearchEngineTools
                 { nameof(qual), d.qual },
                 { nameof(lang), d.lang },
                 { nameof(keygen), d.keygen },
+                { nameof(category), d.category },
                 { nameof(magnet), d.magnet }
             };
         }
@@ -95,7 +98,8 @@ namespace SearchEngineTools
                 tlen = d[nameof(tlen)]?.Value<int>() ?? 0,
                 lang = d[nameof(lang)]?.Value<string>(),
                 keygen = d[nameof(keygen)]?.Value<string>(),
-                magnet = d[nameof(magnet)]?.Value<string>()
+                magnet = d[nameof(magnet)]?.Value<string>(),
+                category = d[nameof(category)]?.Value<string>()
             };
         }
     }
@@ -120,6 +124,7 @@ namespace SearchEngineTools
 
 
     }
+
     [DataContract]
     public class WordDoc
     {
