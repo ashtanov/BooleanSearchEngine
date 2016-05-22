@@ -28,13 +28,13 @@ namespace SearchEngineTools
         public string description { get; set; }
 
         [DataMember(Order = 5)]
-        public string qual { get; set; }
+        public double qual { get; set; }
 
         [DataMember(Order = 6)]
-        public string lang { get; set; }
+        public double lang { get; set; }
 
         [DataMember(Order = 7)]
-        public string keygen { get; set; }
+        public double keygen { get; set; }
 
         [DataMember(Order = 8)]
         [BsonIgnore]
@@ -93,11 +93,11 @@ namespace SearchEngineTools
                 description = d[nameof(description)]?.Value<string>(),
                 pages = d[nameof(pages)].Value<int>(),
                 link = d[nameof(link)]?.Value<string>(),
-                qual = d[nameof(qual)]?.Value<string>(),
+                qual = TextFeatureMapper.QualMap(d[nameof(qual)]?.Value<string>()),
                 len = d[nameof(len)]?.Value<int>() ?? 0,
                 tlen = d[nameof(tlen)]?.Value<int>() ?? 0,
-                lang = d[nameof(lang)]?.Value<string>(),
-                keygen = d[nameof(keygen)]?.Value<string>(),
+                lang = TextFeatureMapper.LangMap(d[nameof(lang)]?.Value<string>()),
+                keygen = TextFeatureMapper.KeygenMap(d[nameof(keygen)]?.Value<string>()),
                 magnet = d[nameof(magnet)]?.Value<string>(),
                 category = d[nameof(category)]?.Value<string>()
             };
