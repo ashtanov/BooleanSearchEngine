@@ -17,13 +17,10 @@ namespace SearchEngineTools
         private IWordNormalizer normalizer;
         private IDocumentStorage storage;
         private Dictionary<string, PositionDict> index;
-        private ConcurrentDictionary<string, int> wordCount;
-        private Dictionary<string, int> wordToInt;
-        private Dictionary<int, string> intToWord;
-        private int wordsCount;
+        private int docsCount;
 
-        public double[] weights = { 1, 0.3 };
-        public double k1 = 2;
+        public double[] Weights = { 1, 0.3 };
+        public double K1 = 2;
 
         public IndexCore() : this(Guid.NewGuid().ToString("N"))
         { }
@@ -34,10 +31,12 @@ namespace SearchEngineTools
             normalizer = new WordCaseNormalizer();
             index = new Dictionary<string, PositionDict>();
             storage = new MongoStorage();
-            wordCount = new ConcurrentDictionary<string, int>();
-            wordToInt = new Dictionary<string, int>();
-            intToWord = new Dictionary<int, string>();
-            wordsCount = 0;
+            docsCount = 0;
+        }
+
+        public void ClearIndex()
+        {
+            storage.ClearStorage();
         }
 
         public void Add(Document d)
@@ -50,6 +49,7 @@ namespace SearchEngineTools
             storage.AddRange(docs);
             foreach (var doc in docs)
             {
+                docsCount++;
                 InsertInIndex(doc, 0, (x) => x.title);
                 InsertInIndex(doc, 200, (x) => x.description);
             }
@@ -64,7 +64,7 @@ namespace SearchEngineTools
             if (words.Length != 0)
             {
                 Document[] res;
-                if(distInt < 1 || words.Length == 1)
+                if (distInt < 1 || words.Length == 1)
                     res = SearchFull(words);
                 else
                 {
@@ -72,7 +72,7 @@ namespace SearchEngineTools
                     if (res.Length == 0)
                         res = SearchFull(words);
                 }
-                
+
                 var ranked = res
                     .Select(x =>
                     {
@@ -127,15 +127,15 @@ namespace SearchEngineTools
                         tfDesc += 1;
                 tfTitl = tfTitl / doc.tlen;
                 tfDesc = doc.len != 0 ? (tfDesc / doc.len) : 0;
-                double tf = tfTitl * weights[0] + tfDesc * weights[1];
-                sum += tf / (k1 + tf) * CalcIdf(w);
+                double tf = tfTitl * Weights[0] + tfDesc * Weights[1];
+                sum += tf / (K1 + tf) * CalcIdf(w);
             }
             return sum;
         }
 
         private double CalcIdf(string w)
         {
-            return Math.Log((wordsCount + 0.0) / wordCount[w]);
+            return Math.Log((docsCount + 0.0) / index[w].Count);
         }
 
         /// <summary>
@@ -146,7 +146,7 @@ namespace SearchEngineTools
         /// <returns></returns>
         private double Cos(Document doc, string[] queryWords)
         {
-            double AB = 0, A2 = 0, B2 = 0;
+            double AB = 0;
             Dictionary<string, double> tfIdfDoc = new Dictionary<string, double>();
             Dictionary<string, double> tfIdfQuery = new Dictionary<string, double>();
             var docWords = ParseHelper.FindAllWords(doc.description + " " + doc.title);
@@ -163,8 +163,8 @@ namespace SearchEngineTools
                     AB += tfIdfDoc[w.Key] * w.Value;
 
             AB = Math.Sqrt(AB);
-            A2 = Math.Sqrt(tfIdfDoc.Sum(x => x.Value * x.Value));
-            B2 = Math.Sqrt(tfIdfQuery.Sum(x => x.Value * x.Value));
+            var A2 = Math.Sqrt(tfIdfDoc.Sum(x => x.Value * x.Value));
+            var B2 = Math.Sqrt(tfIdfQuery.Sum(x => x.Value * x.Value));
 
             return AB / (A2 * B2);
 
@@ -205,14 +205,14 @@ namespace SearchEngineTools
                 List<Coord> intersect = new List<Coord>();
                 int j = 0, k = 0;
                 while (j < current.Count && k < res[i].Count)
-                    if (current[j].docId == res[i][k].docId)
+                    if (current[j].DocId == res[i][k].DocId)
                     {
-                        if (current[j].sPos == res[i][k].fPos)
+                        if (current[j].SPos == res[i][k].FPos)
                             intersect.Add(res[i][k]);
 
-                        if (j + 1 < current.Count && current[j + 1].docId == res[i][k].docId)
+                        if (j + 1 < current.Count && current[j + 1].DocId == res[i][k].DocId)
                             j++;
-                        else if (k + 1 < res[i].Count && res[i][k + 1].docId == current[j].docId)
+                        else if (k + 1 < res[i].Count && res[i][k + 1].DocId == current[j].DocId)
                             k++;
                         else
                         {
@@ -220,13 +220,13 @@ namespace SearchEngineTools
                             j++;
                         }
                     }
-                    else if (current[j].docId < res[i][k].docId)
+                    else if (current[j].DocId < res[i][k].DocId)
                         j++;
                     else
                         k++;
                 current = intersect;
             }
-            return storage.GetRange(current.Select(x => x.docId).ToList()).ToArray();
+            return storage.GetRange(current.Select(x => x.DocId).ToList()).ToArray();
         }
 
         #region De/Serialize
@@ -258,15 +258,7 @@ namespace SearchEngineTools
                             bw.WriteCompressedInt(coord[k] - coord[k - 1]);
                     }
                 }
-                //idf
-                bw.Write(wordCount.Count);
-                foreach (var kvp in wordCount)
-                {
-                    bw.Write(kvp.Key);
-                    bw.Write(kvp.Value);
-                }
-
-                //TODO: сериализовать wordToInt intToWord 
+                bw.Write(docsCount);
             }
         }
 
@@ -302,19 +294,8 @@ namespace SearchEngineTools
                     }
                     ind.index.Add(word, tmp);
                 }
-                //idf
-                int idfCount = br.ReadInt32();
-                for (int i = 0; i < idfCount; ++i)
-                {
-                    var key = br.ReadString();
-                    int val = br.ReadInt32();
-                    ind.wordsCount += val;
-                    ind.wordCount.TryAdd(key, val);
-                }
-
+                ind.docsCount = br.ReadInt32();
             }
-
-            //TODO: десериализовать wordToInt intToWord
             return ind;
         }
         #endregion
@@ -358,29 +339,17 @@ namespace SearchEngineTools
             {
                 string nword = normalizer.NormalizeWord(word);
                 PositionDict tmp;
-                wordsCount++;
-                if (wordToInt.ContainsKey(nword) && index.TryGetValue(nword, out tmp))
-                {
-                    int currentid = wordToInt[nword];
-                    wordCount[nword] += 1;
+                if (index.TryGetValue(nword, out tmp))
                     if (tmp.ContainsKey(doc.intId))
                         tmp[doc.intId].Add(wordPos);
                     else
                         tmp.Add(doc.intId, new Set(new[] { wordPos }));
-                }
                 else
-                {
-                    int currentid = wordToInt.Count;
-                    wordToInt.Add(nword, currentid);
-                    intToWord.Add(currentid, nword);
-
-                    wordCount.AddOrUpdate(nword, 1, (x, y) => y + 1);
                     index.Add(nword,
                         new PositionDict
                         {
                             { doc.intId, new Set(new []{ wordPos })}
                         });
-                }
                 wordPos++;
             }
             return wordPos;
@@ -388,18 +357,18 @@ namespace SearchEngineTools
 
         public class Coord
         {
-            public int docId { get; set; }
-            public int fPos { get; set; }
-            public int sPos { get; set; }
+            public int DocId { get; set; }
+            public int FPos { get; set; }
+            public int SPos { get; set; }
 
             public override string ToString()
             {
-                return $"id:{docId} {{{fPos} {sPos}}}";
+                return $"id:{DocId} {{{FPos} {SPos}}}";
             }
 
             public override int GetHashCode()
             {
-                return docId;
+                return DocId;
             }
 
             public override bool Equals(object obj)
@@ -438,8 +407,7 @@ namespace SearchEngineTools
                         }
                         while (l.Count != 0 && Math.Abs(l[0] - posA[fPos]) > distance)
                             l.RemoveAt(0);
-                        foreach (var ps in l)
-                            answer.Add(new Coord { docId = docId, fPos = posA[fPos], sPos = ps });
+                        answer.AddRange(l.Select(ps => new Coord {DocId = docId, FPos = posA[fPos], SPos = ps}));
                         fPos++;
                     }
                     k++;

@@ -48,14 +48,12 @@ namespace SearchEngineTools
 
         public static bool ContainsAny(this string @this, params string[] ss)
         {
-            return ss.Any(s => @this.Contains(s));
+            return ss.Any(@this.Contains);
         }
 
         public static string ReplaceAll(this string @this, params char[] ss)
         {
-            foreach (var s in ss)
-                @this = @this.Replace(s.ToString(), "");
-            return @this;
+            return ss.Aggregate(@this, (current, s) => current.Replace(s.ToString(), ""));
         }
     }
 }

@@ -98,6 +98,11 @@ namespace SearchEngineTools
             return coll.Find(query).ToList();
         }
 
+        public void ClearStorage()
+        {
+            db.DropCollection("entities");
+        }
+
         public async Task<int> AddAsync(Document doc)
         {
             try

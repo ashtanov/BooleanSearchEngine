@@ -47,21 +47,30 @@ namespace IndexWebApi
         {
             try
             {
-                int distInt;
-                if (!int.TryParse(dist, out distInt))
-                    distInt = 10;
-                var timer = Stopwatch.StartNew();
-                var res = index.SearchQuery(query, distInt);
-                res.errorCode = 0;
-                var elapsed = timer.Elapsed;
-                bool d;
-                if (bool.TryParse(debug, out d))
-                    if (d)
-                    {
-                        res.elapsedTime = elapsed;
-                        return res;
-                    }
-                return res;
+                var stat = Status();
+                if (stat.errorCode == 0)
+                {
+                    int distInt;
+                    if (!int.TryParse(dist, out distInt))
+                        distInt = 10;
+                    var timer = Stopwatch.StartNew();
+                    var res = index.SearchQuery(query, distInt);
+                    res.errorCode = 0;
+                    var elapsed = timer.Elapsed;
+                    bool d;
+                    if (bool.TryParse(debug, out d))
+                        if (d)
+                        {
+                            res.elapsedTime = elapsed;
+                            return res;
+                        }
+                    return res;
+                }
+                return new Response
+                {
+                    errorCode = stat.errorCode,
+                    errorMessage = "Index not ready, more info at /status"
+                };
             }
             catch (Exception ex)
             {
@@ -76,16 +85,27 @@ namespace IndexWebApi
         public Status Status()
         {
             string stat;
-            if (start.IsCompleted)
-                stat = "Ready";
-            else if (start.IsFaulted)
+            int errCode;
+            if (start.IsFaulted)
+            {
                 stat = "Failed:\n" + start.Exception;
+                errCode = -1;
+            }
+            else if (start.IsCompleted)
+            {
+                stat = "Ready";
+                errCode = 0;
+            }
             else
+            {
                 stat = "Loading...";
+                errCode = 1;
+            }
             return new Status
             {
                 status = stat,
-                runningTime = startTime.Elapsed.ToString()
+                runningTime = startTime.Elapsed.ToString(),
+                errorCode = errCode
             };
         }
     }

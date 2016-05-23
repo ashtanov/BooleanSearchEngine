@@ -38,6 +38,8 @@ namespace IndexWebApi
     public class Status
     {
         [DataMember]
+        public int errorCode { get; set; }
+        [DataMember]
         public string status { get; set; }
         [DataMember]
         public string runningTime { get; set; }

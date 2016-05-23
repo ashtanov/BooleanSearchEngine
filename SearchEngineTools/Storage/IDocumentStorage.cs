@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 
 namespace SearchEngineTools
 {
-    //return document id
     public interface IDocumentStorage
     {
         int Add(Document doc);
@@ -15,6 +14,7 @@ namespace SearchEngineTools
         Task<int> AddRangeAsync(IEnumerable<Document> docs);
         Document Get(int id);
         IList<Document> GetRange(IList<int> id);
+        void ClearStorage();
 
     }
 }
