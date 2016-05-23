@@ -56,6 +56,9 @@ namespace SearchEngineTools
         [DataMember(Order = 13)]
         public string category { get; set; }      
 
+        [DataMember(Order = 14)]
+        public DateTime date { get; set; }
+
         public override string ToString()
         {
             return $"{intId}: {title}";
@@ -77,7 +80,8 @@ namespace SearchEngineTools
                 { nameof(lang), d.lang },
                 { nameof(keygen), d.keygen },
                 { nameof(category), d.category },
-                { nameof(magnet), d.magnet }
+                { nameof(magnet), d.magnet },
+                { nameof(date), d.date }
             };
         }
 
@@ -99,7 +103,8 @@ namespace SearchEngineTools
                 lang = TextFeatureMapper.LangMap(d[nameof(lang)]?.Value<string>()),
                 keygen = TextFeatureMapper.KeygenMap(d[nameof(keygen)]?.Value<string>()),
                 magnet = d[nameof(magnet)]?.Value<string>(),
-                category = d[nameof(category)]?.Value<string>()
+                category = d[nameof(category)]?.Value<string>(),
+                date = TextFeatureMapper.IdToDate(d[nameof(id)].Value<int>())
             };
         }
     }

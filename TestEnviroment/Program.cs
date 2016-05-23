@@ -17,11 +17,10 @@ namespace TestEnviroment
         static void Main(string[] args)
         {
             //TestAverageTime();
-
-            CreateIndex(
-                fromDirectiory: @"E:\SourceFiles",
-                saveToFile: @"E:\indexShort.idx"
-            );
+            //CreateIndex(
+            //    fromDirectiory: @"E:\SourceFiles",
+            //    saveToFile: @"E:\indexShort.idx"
+            //);
             //ClassifyFeature(@"E:\SourceFiles");
 
             Console.WriteLine("Нажмите любую клавишу для выхода");

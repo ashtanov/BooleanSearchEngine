@@ -55,5 +55,12 @@ namespace SearchEngineTools
         {
             return ss.Aggregate(@this, (current, s) => current.Replace(s.ToString(), ""));
         }
+
+        public static DateTime ToToDateTimeFromUnixTime(this double unixTimeStamp)
+        {
+            System.DateTime dtDateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, System.DateTimeKind.Utc);
+            dtDateTime = dtDateTime.AddSeconds(unixTimeStamp).ToLocalTime();
+            return dtDateTime;
+        }
     }
 }

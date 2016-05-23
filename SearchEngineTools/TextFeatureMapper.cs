@@ -16,6 +16,21 @@ namespace SearchEngineTools
                 return "";
             return s.ToUpper().ReplaceAll(toReplace);
         }
+
+        public static DateTime IdToDate(int id)
+        {
+            double x1 = 6648;
+            double y1 = 1162771200;
+            double x2 = 2245719;
+            double y2 = 1294531200;
+            double x3 = 5142630;
+            double y3 = 1477958400;
+
+            double a = (y3 - (x3 * (y2 - y1) + x2 * y1 - x1 * y2) / (x2 - x1)) / (x3 * (x3 - x1 - x2) + x1 * x2);
+            double b = (y2 - y1) / (x2 - x1) - a * (x1 + x2);
+            double c = ((x2 * y1) - (x1 * y2)) / (x2 - x1) + a * x1 * x2;
+            return (a * id * id + b * id + c).ToToDateTimeFromUnixTime();
+        }
         public static double LangMap(string s)
         {
             s = Clear(s);
