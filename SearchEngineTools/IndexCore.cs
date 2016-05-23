@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Set = SearchEngineTools.CompressedSortedList;
-using PositionDict = System.Collections.Generic.SortedDictionary<int, SearchEngineTools.CompressedSortedList>;
+using PositionDict = System.Collections.Generic.SortedList<int, SearchEngineTools.CompressedSortedList>;
 using System.Collections.Concurrent;
 using Newtonsoft.Json.Linq;
 

@@ -69,14 +69,12 @@ namespace SearchEngineTools
         public static double KeygenMap(string s)
         {
             s = Clear(s);
-            if (s.ContainsAny("ЕТРЕБ", "DRMFREE", "НЕНУЖ", "ЭТРЭБУЕ"))
+            if (s.ContainsAny("ЕТРЕБ", "DRMFREE", "НЕНУЖ", "ЭТРЭБУЕ", "ЛЕЧ", "ШИТА"))
                 return 1;
-            if (s.ContainsAny("ЛЕЧ", "ШИТА"))
-                return 0.75;
             if (s.ContainsAny("РИСУТ", "CODEX", "RELOAD", "ЕСТЬ", "СЕРИ", "STEAM"))
-                return 0.5;
+                return 0.66;
             if (s.ContainsAny("ЭМУЛ", "ОБРАЗ"))
-                return 0.25;
+                return 0.33;
             if (s.ContainsAny("BLURAY", "REMUX"))
                 return 0;
             return 0.1;
