@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Threading;
+using MongoDB.Bson.Serialization;
 
 namespace SearchEngineTools
 {
@@ -96,6 +97,18 @@ namespace SearchEngineTools
         {
             var query = new FilterDefinitionBuilder<Document>().In("_id", ids);
             return coll.Find(query).ToList();
+        }
+
+        public IList<DocStat> GetDocStat(IList<int> ids)
+        {
+            var query = new FilterDefinitionBuilder<Document>().In("_id", ids);
+
+            var tt = coll.Find(query).Project(
+                Builders<Document>.Projection
+                    .Include(x => x.len)
+                    .Include(x => x.tlen)
+                ).ToList();
+            return tt.Select(x => BsonSerializer.Deserialize<DocStat>(x)).ToList();
         }
 
         public void ClearStorage()

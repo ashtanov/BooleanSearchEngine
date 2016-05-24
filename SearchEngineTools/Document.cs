@@ -1,11 +1,28 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 using Newtonsoft.Json.Linq;
 using MongoDB.Bson.Serialization.Attributes;
-using Newtonsoft.Json;
 
 namespace SearchEngineTools
 {
+
+    public class DocStat : IComparable<DocStat>
+    {
+        [BsonId]
+        [BsonElement("_id")]
+        public int intId { get; set; }
+        [BsonElement("len")]
+        public int len { get; set; }
+        [BsonElement("tlen")]
+        public int tlen { get; set; }
+        [BsonIgnore]
+        public double rank { get; set; }
+
+        public int CompareTo(DocStat other)
+            => -1 * rank.CompareTo(other.rank);
+    }
+
     [DataContract]
     public class Document
     {
@@ -54,7 +71,7 @@ namespace SearchEngineTools
         public int tlen { get; set; }
 
         [DataMember(Order = 13)]
-        public string category { get; set; }      
+        public string category { get; set; }
 
         [DataMember(Order = 14)]
         public DateTime date { get; set; }

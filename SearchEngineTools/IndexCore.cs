@@ -63,27 +63,32 @@ namespace SearchEngineTools
                 .ToArray();
             if (words.Length != 0)
             {
-                Document[] res;
+                IList<int> resIds;
                 if (distInt < 1 || words.Length == 1)
-                    res = SearchFull(words);
+                    resIds = SearchFull(words);
                 else
                 {
-                    res = DistanceSearch(words, distInt);
-                    if (res.Length == 0)
-                        res = SearchFull(words);
+                    resIds = DistanceSearch(words, distInt);
+                    if (resIds.Count == 0)
+                        resIds = SearchFull(words);
+                }
+                List<DocStat> ds = storage.GetDocStat(resIds) as List<DocStat>;
+
+                foreach (var document in ds)
+                    document.rank = BM25F(document, words);
+                ds.Sort();
+                var docsUnrank = storage
+                    .GetRange(ds.Select(x => x.intId).Take(100).ToList()).ToDictionary(x => x.intId);
+                    
+
+                Document[] ranked = new Document[docsUnrank.Count];
+                for (int i = 0; i < ranked.Length; ++i)
+                {
+                    ranked[i] = docsUnrank[ds[i].intId];
+                    ranked[i].rank = ds[i].rank;
+                    ranked[i].cos = Cos(ranked[i], words);
                 }
 
-                var ranked = res
-                    .Select(x =>
-                    {
-                        x.rank = BM25F(x, words);
-                        return x;
-                    }).OrderByDescending(x => x.rank)
-                    .Take(100).Select(r =>
-                    {
-                        r.cos = Cos(r, words);
-                        return r;
-                    }).ToArray();
                 WordDoc[] wdp = new WordDoc[words.Length];
                 for (int i = 0; i < wdp.Length; ++i)
                 {
@@ -113,7 +118,7 @@ namespace SearchEngineTools
             };
         }
 
-        private double BM25F(Document doc, string[] words)
+        private double BM25F(DocStat doc, string[] words)
         {
             double sum = 0;
             foreach (var w in words)
@@ -170,7 +175,7 @@ namespace SearchEngineTools
 
         }
 
-        private Document[] SearchFull(string[] queryWords)
+        private IList<int> SearchFull(string[] queryWords)
         {
             List<List<int>> pdList = new List<List<int>>();
             foreach (var word in queryWords)
@@ -179,10 +184,10 @@ namespace SearchEngineTools
             IList<int> current = pdList[0];
             for (int i = 1; i < pdList.Count; ++i)
                 current = SmartIntersect(current, pdList[i]);
-            return storage.GetRange(current).ToArray();
+            return current;
         }
 
-        private Document[] DistanceSearch(string[] queryWords, int distance)
+        private IList<int> DistanceSearch(string[] queryWords, int distance)
         {
             List<Tuple<string, string>> tmp = new List<Tuple<string, string>>();
             for (int i = 0; i < queryWords.Length; ++i)
@@ -226,7 +231,7 @@ namespace SearchEngineTools
                         k++;
                 current = intersect;
             }
-            return storage.GetRange(current.Select(x => x.DocId).ToList()).ToArray();
+            return current.Select(x => x.DocId).ToList();
         }
 
         #region De/Serialize

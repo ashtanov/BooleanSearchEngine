@@ -9,6 +9,8 @@ using Newtonsoft.Json.Linq;
 using SearchEngineTools;
 using System.Text.RegularExpressions;
 using InfoExtractor;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 
 namespace TestEnviroment
 {
@@ -17,12 +19,11 @@ namespace TestEnviroment
         static void Main(string[] args)
         {
             //TestAverageTime();
-            //CreateIndex(
-            //    fromDirectiory: @"E:\SourceFiles",
-            //    saveToFile: @"E:\indexShort.idx"
-            //);
+            CreateIndex(
+                fromDirectiory: @"E:\SourceFiles",
+                saveToFile: @"E:\indexShort.idx"
+            );
             //ClassifyFeature(@"E:\SourceFiles");
-
             Console.WriteLine("Нажмите любую клавишу для выхода");
             Console.ReadKey();
         }
@@ -61,7 +62,7 @@ namespace TestEnviroment
                     sw.Restart();
                     Console.WriteLine("Load: {0}", Path.GetFileName(file));
                     var t = JArray.Load(new JsonTextReader(new StreamReader(file)));
-                    List<Document> docs = t.Cast<JObject>().Where(j => j.HasValues).Select(j => (Document) j).ToList();
+                    List<Document> docs = t.Cast<JObject>().Where(j => j.HasValues).Select(j => (Document)j).ToList();
                     ic.AddRange(docs);
                     total += sw.Elapsed;
                     Console.WriteLine("Complete: {0}, elapsed: {1}", Path.GetFileName(file), sw.Elapsed);
